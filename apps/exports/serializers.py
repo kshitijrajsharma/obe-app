@@ -1,3 +1,6 @@
+from typing import Any, Dict, Optional
+
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework_gis.serializers import GeoFeatureModelSerializer
 
@@ -13,6 +16,7 @@ class ExportSerializer(GeoFeatureModelSerializer):
     class Meta:
         model = Export
         geo_field = "area_of_interest"
+        id_field = False  # Don't use id as the main identifier for GeoJSON
         fields = [
             "id",
             "user",
@@ -30,11 +34,12 @@ class ExportSerializer(GeoFeatureModelSerializer):
         ]
         read_only_fields = ["id", "user", "created_at", "updated_at"]
 
-    def get_latest_run(self, obj):
+    @extend_schema_field(serializers.DictField(allow_null=True))
+    def get_latest_run(self, obj) -> Optional[Dict[str, Any]]:
         latest_run = obj.latest_run
         if latest_run:
             return {
-                "id": latest_run.id,
+                "id": str(latest_run.id),
                 "status": latest_run.status,
                 "created_at": latest_run.created_at,
                 "building_count": latest_run.building_count,
@@ -42,7 +47,8 @@ class ExportSerializer(GeoFeatureModelSerializer):
             }
         return None
 
-    def get_share_url(self, obj):
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_share_url(self, obj) -> Optional[str]:
         if obj.is_public:
             return f"/public/{obj.id}/"
         return None
