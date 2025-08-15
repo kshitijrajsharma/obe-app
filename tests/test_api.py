@@ -1,11 +1,8 @@
 from django.contrib.auth import get_user_model
-from django.contrib.gis.geos import GEOSGeometry
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
-
-from apps.exports.models import Export, ExportRun
 
 User = get_user_model()
 
@@ -132,9 +129,6 @@ class ExportAPITest(APITestCase):
                 ]
             ],
         }
-        self.nepal_geom = GEOSGeometry(
-            "POLYGON((83.962 28.213, 83.962 28.202, 83.976 28.202, 83.976 28.213, 83.962 28.213))"
-        )
 
     def test_create_export(self):
         url = reverse("api:export_list")
@@ -150,51 +144,67 @@ class ExportAPITest(APITestCase):
         self.assertEqual(response.data["properties"]["name"], "Test Export")
 
     def test_list_exports(self):
-        Export.objects.create(
-            user=self.user,
-            name="Test Export",
-            area_of_interest=self.nepal_geom,
-            source="osm",
-        )
         url = reverse("api:export_list")
+        data = {
+            "name": "Test Export for List",
+            "description": "Test description",
+            "area_of_interest": self.nepal_polygon,
+            "source": "osm",
+            "output_format": "geojson",
+        }
+        self.client.post(url, data, format="json")
+        
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("results", response.data)
-        self.assertEqual(response.data["results"]["type"], "FeatureCollection")
+        self.assertEqual(response.data["results"]["type"], "FeatureCollection")    def test_get_export(self):
+        url = reverse("api:export_list")
+        data = {
+            "name": "Test Export for Get",
+            "description": "Test description",
+            "area_of_interest": self.nepal_polygon,
+            "source": "osm",
+            "output_format": "geojson",
+        }
+        create_response = self.client.post(url, data, format="json")
+        export_id = create_response.data["properties"]["id"]
 
-    def test_get_export(self):
-        export = Export.objects.create(
-            user=self.user,
-            name="Test Export",
-            area_of_interest=self.nepal_geom,
-            source="osm",
-        )
-        url = reverse("api:export_detail", kwargs={"pk": export.pk})
+        url = reverse("api:export_detail", kwargs={"pk": export_id})
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["properties"]["name"], "Test Export")
+        self.assertEqual(response.data["properties"]["name"], "Test Export for Get")
 
     def test_update_export(self):
-        export = Export.objects.create(
-            user=self.user,
-            name="Test Export",
-            area_of_interest=self.nepal_geom,
-            source="osm",
-        )
-        url = reverse("api:export_detail", kwargs={"pk": export.pk})
-        data = {"name": "Updated Export", "description": "Updated description"}
-        response = self.client.patch(url, data, format="json")
+        url = reverse("api:export_list")
+        data = {
+            "name": "Test Export for Update",
+            "description": "Test description",
+            "area_of_interest": self.nepal_polygon,
+            "source": "osm",
+            "output_format": "geojson",
+        }
+        create_response = self.client.post(url, data, format="json")
+        export_id = create_response.data["properties"]["id"]
+
+        url = reverse("api:export_detail", kwargs={"pk": export_id})
+        update_data = {"name": "Updated Export", "description": "Updated description"}
+        response = self.client.patch(url, update_data, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["properties"]["name"], "Updated Export")
 
     def test_delete_export(self):
-        export = Export.objects.create(
-            user=self.user,
-            name="Test Export",
-            area_of_interest=self.nepal_geom,
-            source="osm",
-        )
-        url = reverse("api:export_detail", kwargs={"pk": export.pk})
+        url = reverse("api:export_list")
+        data = {
+            "name": "Test Export for Delete",
+            "description": "Test description",
+            "area_of_interest": self.nepal_polygon,
+            "source": "osm",
+            "output_format": "geojson",
+        }
+        create_response = self.client.post(url, data, format="json")
+        export_id = create_response.data["properties"]["id"]
+
+        url = reverse("api:export_detail", kwargs={"pk": export_id})
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
@@ -213,44 +223,70 @@ class ExportRunAPITest(APITestCase):
         refresh = RefreshToken.for_user(self.user)
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {refresh.access_token}")
 
-        self.nepal_geom = GEOSGeometry(
-            "POLYGON((83.962 28.213, 83.962 28.202, 83.976 28.202, 83.976 28.213, 83.962 28.213))"
-        )
-        self.export = Export.objects.create(
-            user=self.user,
-            name="Test Export",
-            area_of_interest=self.nepal_geom,
-            source="osm",
-        )
+        self.nepal_polygon = {
+            "type": "Polygon",
+            "coordinates": [
+                [
+                    [83.962, 28.213],
+                    [83.962, 28.202],
+                    [83.976, 28.202],
+                    [83.976, 28.213],
+                    [83.962, 28.213],
+                ]
+            ],
+        }
+
+        url = reverse("api:export_list")
+        data = {
+            "name": "Test Export for Runs",
+            "description": "Test export for run testing",
+            "area_of_interest": self.nepal_polygon,
+            "source": "osm",
+            "output_format": "geojson",
+        }
+        create_response = self.client.post(url, data, format="json")
+        self.export_id = create_response.data["properties"]["id"]
 
     def test_list_runs(self):
-        url = reverse("api:run_list", kwargs={"export_id": self.export.pk})
+        url = reverse("api:run_list", kwargs={"export_id": self.export_id})
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_create_run(self):
-        url = reverse("api:run_create", kwargs={"export_id": self.export.pk})
-        data = {"export": self.export.pk}
+        url = reverse("api:run_create", kwargs={"export_id": self.export_id})
+        data = {"export": self.export_id}
         response = self.client.post(url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
     def test_get_run(self):
-        run = ExportRun.objects.create(export=self.export)
-        url = reverse("api:run_detail", kwargs={"pk": run.pk})
+        url = reverse("api:run_create", kwargs={"export_id": self.export_id})
+        data = {"export": self.export_id}
+        create_response = self.client.post(url, data, format="json")
+        run_id = create_response.data["id"]
+
+        url = reverse("api:run_detail", kwargs={"pk": run_id})
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_start_run(self):
-        run = ExportRun.objects.create(export=self.export)
-        url = reverse("api:start_run", kwargs={"pk": run.pk})
+        url = reverse("api:run_create", kwargs={"export_id": self.export_id})
+        data = {"export": self.export_id}
+        create_response = self.client.post(url, data, format="json")
+        run_id = create_response.data["id"]
+
+        url = reverse("api:start_run", kwargs={"pk": run_id})
         response = self.client.post(url, format="json")
         self.assertIn(
             response.status_code, [status.HTTP_200_OK, status.HTTP_400_BAD_REQUEST]
         )
 
     def test_download_run(self):
-        run = ExportRun.objects.create(export=self.export, status="SUCCESS")
-        url = reverse("api:download_run", kwargs={"pk": run.pk})
+        url = reverse("api:run_create", kwargs={"export_id": self.export_id})
+        data = {"export": self.export_id}
+        create_response = self.client.post(url, data, format="json")
+        run_id = create_response.data["id"]
+
+        url = reverse("api:download_run", kwargs={"pk": run_id})
         response = self.client.get(url)
         self.assertIn(
             response.status_code,
@@ -267,17 +303,34 @@ class PublicAPITest(APITestCase):
         user = User.objects.create_user(
             username="testuser", email="test@example.com", password="TestPass123!"
         )
-        nepal_geom = GEOSGeometry(
-            "POLYGON((83.962 28.213, 83.962 28.202, 83.976 28.202, 83.976 28.213, 83.962 28.213))"
-        )
-        Export.objects.create(
-            user=user,
-            name="Public Export",
-            area_of_interest=nepal_geom,
-            source="osm",
-            is_public=True,
-        )
+        refresh = RefreshToken.for_user(user)
 
+        nepal_polygon = {
+            "type": "Polygon",
+            "coordinates": [
+                [
+                    [83.962, 28.213],
+                    [83.962, 28.202],
+                    [83.976, 28.202],
+                    [83.976, 28.213],
+                    [83.962, 28.213],
+                ]
+            ],
+        }
+
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {refresh.access_token}")
+        url = reverse("api:export_list")
+        data = {
+            "name": "Public Export",
+            "description": "Public export for testing",
+            "area_of_interest": nepal_polygon,
+            "source": "osm",
+            "output_format": "geojson",
+            "is_public": True,
+        }
+        self.client.post(url, data, format="json")
+
+        self.client.credentials()
         url = reverse("api:public_exports")
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)

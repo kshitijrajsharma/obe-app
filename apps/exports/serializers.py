@@ -132,7 +132,8 @@ class ExportRunSerializer(serializers.ModelSerializer):
 class CreateExportRunSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExportRun
-        fields = ["export"]
+        fields = ["id", "export"]
+        read_only_fields = ["id"]
 
     def create(self, validated_data):
         validated_data["status"] = "pending"

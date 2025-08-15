@@ -187,8 +187,8 @@ SIMPLE_JWT = {
 # Swagger/OpenAPI Settings
 SPECTACULAR_SETTINGS = {
     "TITLE": "OBE API",
-    "DESCRIPTION": "Open Buildings Everywhere - Building Export API",
-    "VERSION": "1.0.0",
+    "DESCRIPTION": "Open Buildings Extractor - Building Export API",
+    "VERSION": "0.0.1",
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
     "SCHEMA_PATH_PREFIX": "/api/",
