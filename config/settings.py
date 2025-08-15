@@ -134,7 +134,6 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Django REST Framework
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
@@ -156,7 +155,6 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
-# JWT Settings
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
@@ -184,7 +182,6 @@ SIMPLE_JWT = {
     "SLIDING_TOKEN_REFRESH_LIFETIME": timedelta(days=1),
 }
 
-# Swagger/OpenAPI Settings
 SPECTACULAR_SETTINGS = {
     "TITLE": "OBE API",
     "DESCRIPTION": "Open Buildings Extractor - Building Export API",
@@ -199,18 +196,15 @@ SPECTACULAR_SETTINGS = {
     ],
 }
 
-# CORS settings
 CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS", default=[])
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = env("CORS_ALLOW_ALL_ORIGINS", default=DEBUG)
 
-# Email settings
 EMAIL_BACKEND = env(
     "EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend"
 )
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@localhost")
 
-# Huey settings
 HUEY = {
     "huey_class": "huey.RedisHuey",
     "name": "obe_app",
@@ -223,7 +217,6 @@ HUEY = {
     },
 }
 
-# Security settings
 if not DEBUG:
     SECURE_SSL_REDIRECT = env("SECURE_SSL_REDIRECT", default=True)
     SECURE_HSTS_SECONDS = env("SECURE_HSTS_SECONDS", default=31536000)
@@ -234,7 +227,6 @@ SECURE_CONTENT_TYPE_NOSNIFF = env("SECURE_CONTENT_TYPE_NOSNIFF", default=True)
 SECURE_BROWSER_XSS_FILTER = env("SECURE_BROWSER_XSS_FILTER", default=True)
 X_FRAME_OPTIONS = env("X_FRAME_OPTIONS", default="DENY")
 
-# Logging
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -277,7 +269,7 @@ LOGGING = {
     },
 }
 
-# Development settings (disabled for API-only mode)
+# disabling it for now
 if DEBUG and False:
     INSTALLED_APPS += ["debug_toolbar"]
     MIDDLEWARE.insert(1, "debug_toolbar.middleware.DebugToolbarMiddleware")
