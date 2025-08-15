@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OBE App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/maplibre-gl@3/dist/maplibre-gl.js"></script>
+    <link
+      href="https://unpkg.com/maplibre-gl@3/dist/maplibre-gl.css"
+      rel="stylesheet"
+    />
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: "#059669",
+              secondary: "#10b981",
+            },
+          },
+        },
+      };
+    </script>
+  </head>
+  <body class="bg-gray-50">
+    <div class="min-h-screen">
+      <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="flex justify-between h-16">
+            <div class="flex items-center">
+              <h1 class="text-2xl font-bold text-primary">OBE</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+              <div id="auth-section" class="hidden space-x-4">
+                <button
+                  id="create-btn"
+                  class="bg-primary text-white px-4 py-2 rounded-md text-sm hover:bg-secondary"
+                >
+                  Create Export
+                </button>
+                <button
+                  id="logout-btn"
+                  class="text-gray-600 hover:text-gray-800 text-sm"
+                >
+                  Logout
+                </button>
+              </div>
+              <div id="guest-section" class="space-x-4">
+                <button
+                  id="login-btn"
+                  class="text-gray-600 hover:text-gray-800 text-sm"
+                >
+                  Login
+                </button>
+                <button
+                  id="signup-btn"
+                  class="bg-primary text-white px-4 py-2 rounded-md text-sm hover:bg-secondary"
+                >
+                  Sign Up
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div>
+            <div class="flex items-center justify-between mb-6">
+              <h2 class="text-2xl font-bold text-gray-900">Exports</h2>
+              <div class="flex space-x-2">
+                <button
+                  id="show-all"
+                  class="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                >
+                  All
+                </button>
+                <button
+                  id="show-mine"
+                  class="px-3 py-1 text-sm text-gray-600 hover:bg-gray-200 rounded"
+                >
+                  Mine
+                </button>
+              </div>
+            </div>
+
+            <div id="exports-list" class="space-y-4"></div>
+          </div>
+
+          <div>
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">
+              Export Areas
+            </h3>
+            <div id="map" class="w-full h-96 rounded-lg border"></div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <div
+      id="auth-modal"
+      class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center"
+    >
+      <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+        <h3 id="auth-title" class="text-lg font-semibold mb-4">Login</h3>
+        <form id="auth-form" class="space-y-4">
+          <div id="username-field">
+            <input
+              id="username"
+              type="text"
+              placeholder="Username"
+              required
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+          <div id="email-field" class="hidden">
+            <input
+              id="email"
+              type="email"
+              placeholder="Email"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+          <div>
+            <input
+              id="password"
+              type="password"
+              placeholder="Password"
+              required
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+          <div id="error-msg" class="hidden text-red-600 text-sm"></div>
+          <div class="flex space-x-3">
+            <button
+              type="submit"
+              class="flex-1 bg-primary text-white py-2 rounded-md hover:bg-secondary"
+            >
+              <span id="auth-btn-text">Login</span>
+            </button>
+            <button
+              type="button"
+              id="cancel-auth"
+              class="flex-1 bg-gray-300 text-gray-700 py-2 rounded-md hover:bg-gray-400"
+            >
+              Cancel
+            </button>
+          </div>
+          <div class="text-center">
+            <button
+              type="button"
+              id="toggle-auth"
+              class="text-sm text-primary hover:text-secondary"
+            >
+              Don't have an account? Sign up
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div
+      id="create-modal"
+      class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center"
+    >
+      <div class="bg-white rounded-lg p-8 max-w-lg w-full mx-4">
+        <h3 class="text-lg font-semibold mb-4">Create Export</h3>
+        <form id="create-form" class="space-y-4">
+          <div>
+            <input
+              id="export-name"
+              type="text"
+              placeholder="Export Name"
+              required
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+          <div>
+            <textarea
+              id="export-description"
+              placeholder="Description"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+            ></textarea>
+          </div>
+          <div>
+            <select
+              id="export-source"
+              required
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="">Select Source</option>
+              <option value="google">Google Open Buildings</option>
+              <option value="microsoft">Microsoft Building Footprints</option>
+              <option value="osm">OpenStreetMap Buildings</option>
+              <option value="overture">Overture Buildings</option>
+            </select>
+          </div>
+          <div>
+            <select
+              id="export-format"
+              required
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="">Select Format</option>
+              <option value="geoparquet">GeoParquet</option>
+              <option value="geojson">GeoJSON</option>
+              <option value="shapefile">Shapefile</option>
+              <option value="geopackage">GeoPackage</option>
+            </select>
+          </div>
+          <div class="flex items-center">
+            <input id="export-public" type="checkbox" class="mr-2" />
+            <label for="export-public" class="text-sm text-gray-700"
+              >Make public</label
+            >
+          </div>
+          <div id="create-error" class="hidden text-red-600 text-sm"></div>
+          <div class="flex space-x-3">
+            <button
+              type="submit"
+              class="flex-1 bg-primary text-white py-2 rounded-md hover:bg-secondary"
+            >
+              Create
+            </button>
+            <button
+              type="button"
+              id="cancel-create"
+              class="flex-1 bg-gray-300 text-gray-700 py-2 rounded-md hover:bg-gray-400"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      class OBEApp {
+        constructor() {
+          this.exports = [];
+          this.isLogin = true;
+          this.showingMine = false;
+          this.map = null;
+          this.init();
+        }
+
+        init() {
+          this.initMap();
+          this.setupEventListeners();
+          this.updateAuthUI();
+          this.loadExports();
+        }
+
+        initMap() {
+          this.map = new maplibregl.Map({
+            container: "map",
+            style: "https://demotiles.maplibre.org/style.json",
+            center: [0, 20],
+            zoom: 2,
+          });
+        }
+
+        setupEventListeners() {
+          document
+            .getElementById("login-btn")
+            .addEventListener("click", () => this.showAuthModal(true));
+          document
+            .getElementById("signup-btn")
+            .addEventListener("click", () => this.showAuthModal(false));
+          document
+            .getElementById("logout-btn")
+            .addEventListener("click", () => this.logout());
+          document
+            .getElementById("create-btn")
+            .addEventListener("click", () => this.showCreateModal());
+          document
+            .getElementById("show-all")
+            .addEventListener("click", () => this.toggleFilter(false));
+          document
+            .getElementById("show-mine")
+            .addEventListener("click", () => this.toggleFilter(true));
+
+          document
+            .getElementById("cancel-auth")
+            .addEventListener("click", () => this.hideAuthModal());
+          document
+            .getElementById("cancel-create")
+            .addEventListener("click", () => this.hideCreateModal());
+          document
+            .getElementById("toggle-auth")
+            .addEventListener("click", () => this.toggleAuthMode());
+
+          document
+            .getElementById("auth-form")
+            .addEventListener("submit", (e) => this.handleAuth(e));
+          document
+            .getElementById("create-form")
+            .addEventListener("submit", (e) => this.handleCreate(e));
+        }
+
+        isAuthenticated() {
+          return localStorage.getItem("access_token") !== null;
+        }
+
+        updateAuthUI() {
+          const authSection = document.getElementById("auth-section");
+          const guestSection = document.getElementById("guest-section");
+          const showMine = document.getElementById("show-mine");
+
+          if (this.isAuthenticated()) {
+            authSection.classList.remove("hidden");
+            guestSection.classList.add("hidden");
+            showMine.classList.remove("hidden");
+          } else {
+            authSection.classList.add("hidden");
+            guestSection.classList.remove("hidden");
+            showMine.classList.add("hidden");
+            this.showingMine = false;
+            this.updateFilterUI();
+          }
+        }
+
+        showAuthModal(isLogin) {
+          this.isLogin = isLogin;
+          document.getElementById("auth-title").textContent = isLogin
+            ? "Login"
+            : "Sign Up";
+          document.getElementById("auth-btn-text").textContent = isLogin
+            ? "Login"
+            : "Sign Up";
+          document
+            .getElementById("email-field")
+            .classList.toggle("hidden", isLogin);
+          document.getElementById("toggle-auth").textContent = isLogin
+            ? "Don't have an account? Sign up"
+            : "Already have an account? Login";
+          document.getElementById("error-msg").classList.add("hidden");
+          document.getElementById("auth-modal").classList.remove("hidden");
+        }
+
+        hideAuthModal() {
+          document.getElementById("auth-modal").classList.add("hidden");
+          document.getElementById("auth-form").reset();
+        }
+
+        showCreateModal() {
+          document.getElementById("create-modal").classList.remove("hidden");
+        }
+
+        hideCreateModal() {
+          document.getElementById("create-modal").classList.add("hidden");
+          document.getElementById("create-form").reset();
+        }
+
+        toggleAuthMode() {
+          this.showAuthModal(!this.isLogin);
+        }
+
+        toggleFilter(showMine) {
+          this.showingMine = showMine;
+          this.updateFilterUI();
+          this.renderExports();
+        }
+
+        updateFilterUI() {
+          const showAll = document.getElementById("show-all");
+          const showMine = document.getElementById("show-mine");
+
+          if (this.showingMine) {
+            showAll.className =
+              "px-3 py-1 text-sm text-gray-600 hover:bg-gray-200 rounded";
+            showMine.className =
+              "px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300";
+          } else {
+            showAll.className =
+              "px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300";
+            showMine.className =
+              "px-3 py-1 text-sm text-gray-600 hover:bg-gray-200 rounded";
+          }
+        }
+
+        async apiCall(endpoint, options = {}) {
+          const token = localStorage.getItem("access_token");
+          const headers = {
+            "Content-Type": "application/json",
+            "X-CSRFToken":
+              document.querySelector("[name=csrfmiddlewaretoken]")?.value || "",
+          };
+
+          if (token) {
+            headers.Authorization = `Bearer ${token}`;
+          }
+
+          const response = await fetch(`/api${endpoint}`, {
+            ...options,
+            headers: { ...headers, ...options.headers },
+          });
+
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.detail || "Request failed");
+          return data;
+        }
+
+        async handleAuth(e) {
+          e.preventDefault();
+          const errorMsg = document.getElementById("error-msg");
+          errorMsg.classList.add("hidden");
+
+          try {
+            const formData = new FormData(e.target);
+            const data = {
+              username:
+                formData.get("username") ||
+                document.getElementById("username").value,
+              password:
+                formData.get("password") ||
+                document.getElementById("password").value,
+            };
+
+            if (!this.isLogin) {
+              data.email = document.getElementById("email").value;
+              data.password2 = data.password;
+            }
+
+            const result = await this.apiCall(
+              this.isLogin ? "/auth/login/" : "/auth/register/",
+              { method: "POST", body: JSON.stringify(data) }
+            );
+
+            localStorage.setItem("access_token", result.access);
+            localStorage.setItem("refresh_token", result.refresh);
+
+            this.hideAuthModal();
+            this.updateAuthUI();
+            this.loadExports();
+          } catch (error) {
+            errorMsg.textContent = error.message;
+            errorMsg.classList.remove("hidden");
+          }
+        }
+
+        async handleCreate(e) {
+          e.preventDefault();
+          const errorMsg = document.getElementById("create-error");
+          errorMsg.classList.add("hidden");
+
+          try {
+            const data = {
+              name: document.getElementById("export-name").value,
+              description: document.getElementById("export-description").value,
+              source: document.getElementById("export-source").value,
+              output_format: document.getElementById("export-format").value,
+              is_public: document.getElementById("export-public").checked,
+              area_of_interest: {
+                type: "Polygon",
+                coordinates: [
+                  [
+                    [-180, -85],
+                    [180, -85],
+                    [180, 85],
+                    [-180, 85],
+                    [-180, -85],
+                  ],
+                ],
+              },
+            };
+
+            await this.apiCall("/exports/", {
+              method: "POST",
+              body: JSON.stringify(data),
+            });
+
+            this.hideCreateModal();
+            this.loadExports();
+          } catch (error) {
+            errorMsg.textContent = error.message;
+            errorMsg.classList.remove("hidden");
+          }
+        }
+
+        logout() {
+          localStorage.removeItem("access_token");
+          localStorage.removeItem("refresh_token");
+          this.updateAuthUI();
+          this.loadExports();
+        }
+
+        async loadExports() {
+          try {
+            const data = await this.apiCall("/exports/?ordering=-created_at");
+            this.exports = data.results || [];
+            this.renderExports();
+            this.updateMap();
+          } catch (error) {
+            console.error("Failed to load exports:", error);
+            this.exports = [];
+            this.renderExports();
+          }
+        }
+
+        renderExports() {
+          const container = document.getElementById("exports-list");
+          let filteredExports = this.exports;
+
+          if (this.showingMine && this.isAuthenticated()) {
+            filteredExports = this.exports.filter((exp) => exp.user);
+          }
+
+          if (filteredExports.length === 0) {
+            container.innerHTML = `
+                        <div class="text-center py-8 text-gray-500">
+                            ${
+                              this.showingMine
+                                ? "No exports created yet"
+                                : "No exports available"
+                            }
+                        </div>
+                    `;
+            return;
+          }
+
+          container.innerHTML = filteredExports
+            .map(
+              (exp) => `
+                    <div class="bg-white rounded-lg border p-4 hover:shadow-md transition-shadow cursor-pointer" onclick="app.selectExport('${
+                      exp.id
+                    }')">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="font-semibold text-gray-900">${
+                              exp.name
+                            }</h3>
+                            <span class="text-xs px-2 py-1 rounded ${
+                              exp.is_public
+                                ? "bg-green-100 text-green-800"
+                                : "bg-gray-100 text-gray-800"
+                            }">
+                                ${exp.is_public ? "Public" : "Private"}
+                            </span>
+                        </div>
+                        <p class="text-sm text-gray-600 mb-2">${
+                          exp.description || "No description"
+                        }</p>
+                        <div class="flex justify-between text-xs text-gray-500">
+                            <span>Source: ${exp.source}</span>
+                            <span>${new Date(
+                              exp.created_at
+                            ).toLocaleDateString()}</span>
+                        </div>
+                    </div>
+                `
+            )
+            .join("");
+        }
+
+        selectExport(id) {
+          const exp = this.exports.find((e) => e.id === id);
+          if (exp && exp.area_of_interest) {
+            const geom = exp.area_of_interest;
+            if (geom.coordinates && geom.coordinates[0]) {
+              const coords = geom.coordinates[0];
+              const bounds = coords.reduce((bounds, coord) => {
+                return bounds.extend(coord);
+              }, new maplibregl.LngLatBounds(coords[0], coords[0]));
+              this.map.fitBounds(bounds, { padding: 20 });
+            }
+          }
+        }
+
+        updateMap() {
+          if (this.map.getSource("exports")) {
+            this.map.removeLayer("exports-fill");
+            this.map.removeLayer("exports-line");
+            this.map.removeSource("exports");
+          }
+
+          const features = this.exports
+            .filter((exp) => exp.area_of_interest)
+            .map((exp) => ({
+              type: "Feature",
+              properties: { id: exp.id, name: exp.name },
+              geometry: exp.area_of_interest,
+            }));
+
+          if (features.length > 0) {
+            this.map.addSource("exports", {
+              type: "geojson",
+              data: { type: "FeatureCollection", features },
+            });
+
+            this.map.addLayer({
+              id: "exports-fill",
+              type: "fill",
+              source: "exports",
+              paint: {
+                "fill-color": "#059669",
+                "fill-opacity": 0.2,
+              },
+            });
+
+            this.map.addLayer({
+              id: "exports-line",
+              type: "line",
+              source: "exports",
+              paint: {
+                "line-color": "#059669",
+                "line-width": 2,
+              },
+            });
+          }
+        }
+      }
+
+      const app = new OBEApp();
+    </script>
+  </body>
+</html>
