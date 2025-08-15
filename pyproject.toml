@@ -1,0 +1,35 @@
+[project]
+name = "obe-app"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "boto3>=1.40.10",
+    "cryptography>=41.0.0",
+    "django>=5.2.5",
+    "django-allauth>=65.10.0",
+    "django-cors-headers>=4.7.0",
+    "django-environ>=0.12.0",
+    "django-htmx>=1.23.2",
+    "django-ses>=4.4.0",
+    "django-storages>=1.14.6",
+    "django-widget-tweaks>=1.5.0",
+    "djangorestframework>=3.16.1",
+    "djangorestframework-gis>=1.2.0",
+    "gunicorn>=23.0.0",
+    "huey>=2.5.3",
+    "obe>=0.0.6",
+    "pillow>=11.3.0",
+    "psycopg2>=2.9.10",
+    "pyjwt>=2.8.0",
+    "python-dotenv>=1.1.1",
+    "redis>=6.4.0",
+    "whitenoise>=6.9.0",
+]
+
+[dependency-groups]
+dev = [
+    "django-debug-toolbar>=6.0.0",
+    "django-extensions>=4.1",
+]
