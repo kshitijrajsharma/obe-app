@@ -4,7 +4,8 @@ from django.contrib.gis.geos import GEOSGeometry
 from django.core.exceptions import ValidationError
 from django.http import FileResponse, Http404
 from django_filters.rest_framework import DjangoFilterBackend
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.openapi import OpenApiParameter
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import filters, generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -22,13 +23,6 @@ from ..tasks import process_export
 
 @extend_schema(tags=["Exports"])
 class ExportListCreateView(generics.ListCreateAPIView):
-    """
-    List user's exports or create a new export.
-
-    Supports filtering by source, output_format, is_public, and date ranges.
-    Supports searching by name and description.
-    """
-
     serializer_class = ExportSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [
@@ -42,7 +36,6 @@ class ExportListCreateView(generics.ListCreateAPIView):
     ordering = ["-created_at"]
 
     def get_queryset(self):
-        # Check if this is a schema generation request (swagger_fake_view)
         if getattr(self, "swagger_fake_view", False):
             return Export.objects.none()
         return Export.objects.filter(user=self.request.user)
@@ -53,10 +46,6 @@ class ExportListCreateView(generics.ListCreateAPIView):
 
 @extend_schema(tags=["Exports"])
 class ExportDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """
-    Retrieve, update, or delete a specific export.
-    """
-
     serializer_class = ExportSerializer
     permission_classes = [IsAuthenticated]
 
@@ -68,10 +57,6 @@ class ExportDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 @extend_schema(tags=["Export Runs"])
 class ExportRunListView(generics.ListAPIView):
-    """
-    List export runs for a specific export with filtering capabilities.
-    """
-
     serializer_class = ExportRunSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
@@ -90,10 +75,6 @@ class ExportRunListView(generics.ListAPIView):
 
 @extend_schema(tags=["Export Runs"])
 class ExportRunCreateView(generics.CreateAPIView):
-    """
-    Create a new export run for a specific export.
-    """
-
     serializer_class = CreateExportRunSerializer
     permission_classes = [IsAuthenticated]
 
@@ -112,10 +93,6 @@ class ExportRunCreateView(generics.CreateAPIView):
 
 @extend_schema(tags=["Export Runs"])
 class ExportRunDetailView(generics.RetrieveAPIView):
-    """
-    Retrieve details of a specific export run.
-    """
-
     serializer_class = ExportRunSerializer
     permission_classes = [IsAuthenticated]
 
@@ -125,12 +102,8 @@ class ExportRunDetailView(generics.RetrieveAPIView):
         return ExportRun.objects.filter(export__user=self.request.user)
 
 
-@extend_schema(tags=["Export Runs"])
+@extend_schema(tags=["Export Runs"], request=None, responses={200: ExportRunSerializer})
 class StartExportRunView(APIView):
-    """
-    Start processing an export run.
-    """
-
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
@@ -159,12 +132,20 @@ class StartExportRunView(APIView):
             )
 
 
-@extend_schema(tags=["Export Runs"])
+@extend_schema(
+    tags=["Export Runs"],
+    responses={
+        200: {
+            "description": "Export file",
+            "content": {
+                "application/octet-stream": {
+                    "schema": {"type": "string", "format": "binary"}
+                }
+            },
+        }
+    },
+)
 class DownloadExportRunView(APIView):
-    """
-    Download the result file of a completed export run.
-    """
-
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
@@ -188,12 +169,21 @@ class DownloadExportRunView(APIView):
             raise Http404("Export run not found")
 
 
-@extend_schema(tags=["Utilities"])
+@extend_schema(
+    tags=["Utilities"],
+    request={"type": "object", "properties": {"geometry": {"type": "object"}}},
+    responses={
+        200: {
+            "type": "object",
+            "properties": {
+                "valid": {"type": "boolean"},
+                "area_km2": {"type": "number"},
+                "centroid": {"type": "object"},
+            },
+        }
+    },
+)
 class ValidateAOIView(APIView):
-    """
-    Validate area of interest geometry and get area information.
-    """
-
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -245,12 +235,16 @@ class ValidateAOIView(APIView):
             )
 
 
-@extend_schema(tags=["Utilities"])
+@extend_schema(
+    tags=["Utilities"],
+    responses={
+        200: {
+            "type": "object",
+            "properties": {"source": {"type": "string"}, "schema": {"type": "object"}},
+        }
+    },
+)
 class SourceConfigSchemaView(APIView):
-    """
-    Get configuration schema for a specific data source.
-    """
-
     permission_classes = [IsAuthenticated]
 
     def get(self, request, source):
@@ -264,10 +258,6 @@ class SourceConfigSchemaView(APIView):
 
 @extend_schema(tags=["Public"])
 class PublicExportListView(generics.ListAPIView):
-    """
-    List all public exports (no authentication required).
-    """
-
     serializer_class = ExportSerializer
     permission_classes = []
     filter_backends = [

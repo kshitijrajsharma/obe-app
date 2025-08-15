@@ -7,8 +7,6 @@ User = get_user_model()
 
 
 class UserSerializer(serializers.ModelSerializer):
-    """Serializer for User model"""
-
     class Meta:
         model = User
         fields = [
@@ -27,8 +25,6 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
-    """Serializer for user registration"""
-
     email = serializers.EmailField(
         required=True, validators=[UniqueValidator(queryset=User.objects.all())]
     )
@@ -63,8 +59,6 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
-    """Serializer for user profile updates"""
-
     class Meta:
         model = User
         fields = [
@@ -79,8 +73,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 
 class ChangePasswordSerializer(serializers.Serializer):
-    """Serializer for password change"""
-
     old_password = serializers.CharField(required=True)
     new_password = serializers.CharField(required=True, validators=[validate_password])
     new_password_confirm = serializers.CharField(required=True)
@@ -99,19 +91,10 @@ class ChangePasswordSerializer(serializers.Serializer):
         return value
 
     def create(self, validated_data):
-        # Not used for password change
         raise NotImplementedError("Create method not implemented")
 
     def update(self, instance, validated_data):
-        # Update the user's password
         password = validated_data["new_password"]
         instance.set_password(password)
         instance.save()
         return instance
-
-    def save(self, **kwargs):
-        password = self.validated_data["new_password"]
-        user = self.context["request"].user
-        user.set_password(password)
-        user.save()
-        return user

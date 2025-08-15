@@ -17,8 +17,6 @@ User = get_user_model()
 
 
 class RegisterView(generics.CreateAPIView):
-    """User registration endpoint"""
-
     queryset = User.objects.all()
     serializer_class = UserRegistrationSerializer
     permission_classes = [AllowAny]
@@ -28,7 +26,6 @@ class RegisterView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
-        # Generate JWT tokens for the newly registered user
         refresh = RefreshToken.for_user(user)
 
         return Response(
@@ -42,8 +39,6 @@ class RegisterView(generics.CreateAPIView):
 
 
 class UserProfileView(generics.RetrieveUpdateAPIView):
-    """Get and update user profile"""
-
     serializer_class = UserProfileSerializer
     permission_classes = [IsAuthenticated]
 
@@ -52,8 +47,6 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
 
 
 class ChangePasswordView(generics.UpdateAPIView):
-    """Change user password"""
-
     serializer_class = ChangePasswordSerializer
     permission_classes = [IsAuthenticated]
 
@@ -62,8 +55,6 @@ class ChangePasswordView(generics.UpdateAPIView):
 
 
 class UserListView(generics.ListAPIView):
-    """List all users (admin only)"""
-
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
@@ -74,31 +65,23 @@ class UserListView(generics.ListAPIView):
     ordering = ["-date_joined"]
 
     def get_queryset(self):
-        # Check if this is a schema generation request
         if getattr(self, "swagger_fake_view", False):
             return User.objects.none()
-        # Only allow staff users to view all users
         if self.request.user.is_staff:
             return User.objects.all()
         else:
-            # Regular users can only see themselves
             return User.objects.filter(id=self.request.user.id)
 
 
 class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """Get, update, or delete a specific user (admin only)"""
-
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Check if this is a schema generation request
         if getattr(self, "swagger_fake_view", False):
             return User.objects.none()
-        # Only allow staff users to manage other users
         if self.request.user.is_staff:
             return User.objects.all()
         else:
-            # Regular users can only access their own profile
             return User.objects.filter(id=self.request.user.id)
