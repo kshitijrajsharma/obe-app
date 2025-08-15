@@ -1,7 +1,10 @@
 from typing import Any, Dict, Optional
+
+from django.contrib.gis.geos import GEOSGeometry
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework_gis.serializers import GeoFeatureModelSerializer
+
 from .models import Export, ExportRun
 
 
@@ -16,11 +19,35 @@ class ExportSerializer(GeoFeatureModelSerializer):
         geo_field = "area_of_interest"
         id_field = False
         fields = [
-            "id", "user", "name", "description", "source", "source_config",
-            "output_format", "is_public", "share_url", "created_at", "updated_at",
-            "latest_run", "is_processing"
+            "id",
+            "user",
+            "name",
+            "description",
+            "source",
+            "source_config",
+            "output_format",
+            "is_public",
+            "share_url",
+            "created_at",
+            "updated_at",
+            "latest_run",
+            "is_processing",
         ]
         read_only_fields = ["id", "user", "created_at", "updated_at"]
+
+    def create(self, validated_data):
+        # Convert GeoJSON dict to GEOSGeometry if needed
+        area_of_interest = validated_data.get("area_of_interest")
+        if area_of_interest and isinstance(area_of_interest, dict):
+            validated_data["area_of_interest"] = GEOSGeometry(str(area_of_interest))
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        # Convert GeoJSON dict to GEOSGeometry if needed
+        area_of_interest = validated_data.get("area_of_interest")
+        if area_of_interest and isinstance(area_of_interest, dict):
+            validated_data["area_of_interest"] = GEOSGeometry(str(area_of_interest))
+        return super().update(instance, validated_data)
 
     @extend_schema_field(serializers.DictField(allow_null=True))
     def get_latest_run(self, obj) -> Optional[Dict[str, Any]]:
@@ -56,13 +83,31 @@ class ExportRunSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExportRun
         fields = [
-            "id", "export", "status", "results", "started_at", "completed_at",
-            "error_message", "task_id", "created_at", "updated_at", "duration",
-            "building_count", "file_size", "download_url"
+            "id",
+            "export",
+            "status",
+            "results",
+            "started_at",
+            "completed_at",
+            "error_message",
+            "task_id",
+            "created_at",
+            "updated_at",
+            "duration",
+            "building_count",
+            "file_size",
+            "download_url",
         ]
         read_only_fields = [
-            "id", "export", "results", "started_at", "completed_at",
-            "error_message", "task_id", "created_at", "updated_at"
+            "id",
+            "export",
+            "results",
+            "started_at",
+            "completed_at",
+            "error_message",
+            "task_id",
+            "created_at",
+            "updated_at",
         ]
 
     @extend_schema_field(serializers.CharField(allow_null=True))
