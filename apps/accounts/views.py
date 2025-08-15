@@ -53,6 +53,15 @@ class ChangePasswordView(generics.UpdateAPIView):
     def get_object(self):
         return self.request.user
 
+    def update(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = self.get_object()
+        serializer.update(user, serializer.validated_data)
+        return Response(
+            {"message": "Password updated successfully"}, status=status.HTTP_200_OK
+        )
+
 
 class UserListView(generics.ListAPIView):
     queryset = User.objects.all()
