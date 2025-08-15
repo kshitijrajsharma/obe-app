@@ -1,8 +1,21 @@
 import os
+import tomllib
 from datetime import timedelta
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def get_version():
+    try:
+        with open(BASE_DIR / "pyproject.toml", "rb") as f:
+            data = tomllib.load(f)
+            return data["project"]["version"]
+    except (FileNotFoundError, KeyError, tomllib.TOMLDecodeError):
+        return "0.1.0"
+
+
+VERSION = get_version()
 
 try:
     import environ
@@ -16,7 +29,7 @@ try:
     DEBUG = env("DEBUG")
     ALLOWED_HOSTS = env("ALLOWED_HOSTS")
     DATABASES = {"default": env.db()}
-except (ImportError, Exception):
+except ImportError:
 
     class SimpleEnv:
         def __call__(self, key, default=None):
@@ -185,7 +198,7 @@ SIMPLE_JWT = {
 SPECTACULAR_SETTINGS = {
     "TITLE": "OBE API",
     "DESCRIPTION": "Open Buildings Extractor - Building Export API",
-    "VERSION": "0.0.1",
+    "VERSION": VERSION,
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
     "SCHEMA_PATH_PREFIX": "/api/",
@@ -268,9 +281,3 @@ LOGGING = {
         },
     },
 }
-
-# disabling it for now
-if DEBUG and False:
-    INSTALLED_APPS += ["debug_toolbar"]
-    MIDDLEWARE.insert(1, "debug_toolbar.middleware.DebugToolbarMiddleware")
-    INTERNAL_IPS = ["127.0.0.1"]

@@ -5,14 +5,10 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "boto3>=1.40.10",
-    "cryptography>=41.0.0",
     "django>=5.2.5",
     "django-cors-headers>=4.7.0",
     "django-environ>=0.12.0",
     "django-filter>=24.3",
-    "django-ses>=4.4.0",
-    "django-storages>=1.14.6",
     "djangorestframework>=3.16.1",
     "djangorestframework-gis>=1.2.0",
     "djangorestframework-simplejwt>=5.3.0",
@@ -20,9 +16,7 @@ dependencies = [
     "gunicorn>=23.0.0",
     "huey>=2.5.3",
     "obe>=0.0.6",
-    "pillow>=11.3.0",
     "psycopg2>=2.9.10",
-    "pyjwt>=2.8.0",
     "python-dotenv>=1.1.1",
     "redis>=6.4.0",
     "whitenoise>=6.9.0",
@@ -33,4 +27,23 @@ dev = [
     "commitizen>=4.8.3",
     "django-debug-toolbar>=6.0.0",
     "django-extensions>=4.1",
+]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+version = "0.1.0"
+version_files = [
+    "pyproject.toml:version"
+]
+style = [
+    ["qmark", "fg:#ff9d00 bold"],
+    ["question", "bold"],
+    ["answer", "fg:#ff9d00 bold"],
+    ["pointer", "fg:#ff9d00 bold"],
+    ["highlighted", "fg:#ff9d00 bold"],
+    ["selected", "fg:#cc5454"],
+    ["separator", "fg:#cc5454"],
+    ["instruction", ""],
+    ["text", ""],
+    ["disabled", "fg:#858585 italic"]
 ]
