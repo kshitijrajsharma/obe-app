@@ -2,6 +2,7 @@ from django.urls import path
 
 from ..views import api_views
 from ..views.api_root import APIRootView
+from ..views.api_views import rerun_export
 
 app_name = "api"
 
@@ -33,6 +34,11 @@ urlpatterns = [
         "runs/<uuid:pk>/download/",
         api_views.DownloadExportRunView.as_view(),
         name="download_run",
+    ),
+    path(
+        "exports/rerun/<uuid:export_id>/",
+        rerun_export,
+        name="rerun-export",
     ),
     # Public exports
     path(

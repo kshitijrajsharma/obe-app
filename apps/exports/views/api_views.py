@@ -7,6 +7,7 @@ from django.http import FileResponse, Http404
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema
 from rest_framework import filters, generics, status
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -268,6 +269,19 @@ class SourceConfigSchemaView(APIView):
             )
 
         return Response({"source": source, "schema": SOURCE_CONFIG_SCHEMA[source]})
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def rerun_export(request, export_id):
+    try:
+        export = Export.objects.get(id=export_id)
+    except Export.DoesNotExist:
+        return Response({"error": "Export not found"}, status=status.HTTP_404_NOT_FOUND)
+    run = ExportRun.objects.create(export=export, status="queued")
+    process_export.schedule((str(run.id),), delay=1)
+    serializer = ExportRunSerializer(run)
+    return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 @extend_schema(tags=["Public"])

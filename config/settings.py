@@ -223,6 +223,7 @@ DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@localhost")
 
 HUEY = {
     "huey_class": "huey.RedisHuey",
+    "immediate": False,
     "name": "obe_app",
     "connection": {
         "url": env("REDIS_URL", default="redis://localhost:6379/0"),

@@ -98,8 +98,48 @@
               }</span></div>
               <div>User: <span class="font-medium">${p.user || "-"}</span></div>
             </div>
+            <div class="mt-4">
+              <button id="rerun-btn" class="px-5 py-2.5 bg-green-600 text-white font-semibold rounded-lg shadow hover:bg-green-700 transition disabled:opacity-60 disabled:cursor-not-allowed">Rerun Export</button>
+            </div>
           </div>
         `;
+        document.getElementById("rerun-btn").onclick = rerunExport;
+        let rerunPolling = null;
+        async function rerunExport() {
+          const btn = document.getElementById("rerun-btn");
+          btn.disabled = true;
+          btn.textContent = "Rerunning...";
+          const token = localStorage.getItem("access_token");
+          const res = await fetch(`/api/exports/rerun/${exportId}/`, {
+            method: "POST",
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+          if (res.ok) {
+            pollRuns();
+          } else {
+            btn.disabled = false;
+            btn.textContent = "Rerun Export";
+            alert("Failed to rerun export");
+          }
+        }
+
+        async function pollRuns() {
+          if (rerunPolling) clearInterval(rerunPolling);
+          rerunPolling = setInterval(async () => {
+            await fetchRuns();
+            renderRuns();
+            // If no run is queued or processing, re-enable the button
+            const running = runs.some(
+              (r) => r.status === "queued" || r.status === "processing"
+            );
+            const btn = document.getElementById("rerun-btn");
+            if (!running && btn) {
+              btn.disabled = false;
+              btn.textContent = "Rerun Export";
+              clearInterval(rerunPolling);
+            }
+          }, 3000);
+        }
       }
 
       function renderRuns() {
