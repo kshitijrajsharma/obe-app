@@ -155,3 +155,5 @@ Create Export with drawing in Map as well as Upload :
 
 Results : 
 <img width="1217" height="677" alt="image" src="https://github.com/user-attachments/assets/707fbdd3-7b21-4a2b-8085-7b29e477444a" />
+<img width="657" height="285" alt="image" src="https://github.com/user-attachments/assets/121d567b-049d-428e-9d94-dd33572ae4a1" />
+
