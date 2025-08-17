@@ -75,7 +75,9 @@ THIRD_PARTY_APPS = [
     "django_filters",
     "drf_spectacular",
     "huey.contrib.djhuey",
+    "rest_framework_gis",
 ]
+
 
 LOCAL_APPS = [
     "apps.exports",

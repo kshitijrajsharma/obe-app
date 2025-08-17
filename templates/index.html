@@ -493,16 +493,15 @@
             let data;
             if (this.showingMine && this.isAuthenticated()) {
               data = await this.apiCall("/exports/?ordering=-created_at");
-              this.exports = Array.isArray(data.results) ? data.results : [];
+              this.exports = Array.isArray(data.results?.features)
+                ? data.results.features
+                : [];
             } else {
               data = await this.apiCall(
                 "/public/exports/?ordering=-created_at"
               );
               this.exports = Array.isArray(data.results?.features)
-                ? data.results.features.map((f) => ({
-                    ...f.properties,
-                    geometry: f.geometry,
-                  }))
+                ? data.results.features
                 : [];
             }
             this.renderExports();
@@ -518,10 +517,6 @@
           const container = document.getElementById("exports-list");
           let filteredExports = Array.isArray(this.exports) ? this.exports : [];
 
-          if (this.showingMine && this.isAuthenticated()) {
-            filteredExports = filteredExports.filter((exp) => exp.user);
-          }
-
           if (!Array.isArray(filteredExports) || filteredExports.length === 0) {
             container.innerHTML = `
                         <div class="text-center py-8 text-gray-500">
@@ -536,77 +531,71 @@
           }
 
           container.innerHTML = filteredExports
-            .map(
-              (exp) => `
-                    <div class="bg-white rounded-lg border p-4 hover:shadow-md transition-shadow cursor-pointer" onclick="app.selectExport('${
-                      exp.id
-                    }')">
-                        <div class="flex justify-between items-start mb-2">
-                            <h3 class="font-semibold text-gray-900">${
-                              exp.name
-                            }</h3>
-                            <span class="text-xs px-2 py-1 rounded ${
-                              exp.is_public
-                                ? "bg-green-100 text-green-800"
-                                : "bg-gray-100 text-gray-800"
-                            }">
-                                ${exp.is_public ? "Public" : "Private"}
-                            </span>
-                        </div>
-                        <p class="text-sm text-gray-600 mb-2">${
-                          exp.description || "No description"
-                        }</p>
-                        <div class="flex justify-between text-xs text-gray-500">
-                            <span>Source: ${exp.source}</span>
-                            <span>${new Date(
-                              exp.created_at
-                            ).toLocaleDateString()}</span>
-                        </div>
-                    </div>
-                `
-            )
+            .map((exp) => {
+              const p = exp.properties || {};
+              return `
+                  <div class="bg-white rounded-lg border p-4 hover:shadow-md transition-shadow cursor-pointer" onclick="app.selectExport('${
+                    p.id || exp.id
+                  }')">
+                      <div class="flex justify-between items-start mb-2">
+                          <h3 class="font-semibold text-gray-900">${
+                            p.name || "Unnamed"
+                          }</h3>
+                          <span class="text-xs px-2 py-1 rounded ${
+                            p.is_public
+                              ? "bg-green-100 text-green-800"
+                              : "bg-gray-100 text-gray-800"
+                          }">
+                              ${p.is_public ? "Public" : "Private"}
+                          </span>
+                      </div>
+                      <p class="text-sm text-gray-600 mb-2">${
+                        p.description || "No description"
+                      }</p>
+                      <div class="flex justify-between text-xs text-gray-500">
+                          <span>Source: ${p.source || "-"}</span>
+                          <span>${
+                            p.created_at
+                              ? new Date(p.created_at).toLocaleDateString()
+                              : ""
+                          }</span>
+                      </div>
+                  </div>
+              `;
+            })
             .join("");
         }
 
         selectExport(id) {
-          const exp = this.exports.find((e) => e.id === id);
-          if (exp && exp.area_of_interest) {
-            const geom = exp.area_of_interest;
-            if (geom.coordinates && geom.coordinates[0]) {
-              const coords = geom.coordinates[0];
-              const bounds = coords.reduce((bounds, coord) => {
-                return bounds.extend(coord);
-              }, new maplibregl.LngLatBounds(coords[0], coords[0]));
-              this.map.fitBounds(bounds, { padding: 20 });
-            }
+          const exp = this.exports.find(
+            (e) => (e.properties?.id || e.id) === id
+          );
+          const geom = exp && exp.geometry;
+          if (geom && geom.coordinates && geom.coordinates[0]) {
+            const coords = geom.coordinates[0];
+            const bounds = coords.reduce(
+              (b, coord) => b.extend(coord),
+              new maplibregl.LngLatBounds(coords[0], coords[0])
+            );
+            this.map.fitBounds(bounds, { padding: 20 });
           }
         }
 
         updateMap() {
-          if (this.map.getSource("exports")) {
-            this.map.removeLayer("exports-fill");
-            this.map.removeLayer("exports-line");
-            this.map.removeSource("exports");
-          }
-
-          const features = (Array.isArray(this.exports) ? this.exports : [])
-            .filter((exp) => exp.geometry)
-            .map((exp) => {
-              let geometry = exp.geometry;
-              if (
-                typeof geometry === "string" &&
-                geometry.startsWith("SRID=")
-              ) {
-                // Optionally: convert WKT to GeoJSON here if needed
-                return null;
+          ["exports-fill", "exports-cluster", "exports-cluster-count"].forEach(
+            (id) => {
+              if (this.map.getLayer(id)) {
+                this.map.removeLayer(id);
               }
-              return {
-                type: "Feature",
-                properties: { id: exp.id, name: exp.name },
-                geometry,
-              };
-            })
-            .filter(Boolean);
+            }
+          );
+          ["exports", "exports-centroids"].forEach((id) => {
+            if (this.map.getSource(id)) {
+              this.map.removeSource(id);
+            }
+          });
+
+          const features = Array.isArray(this.exports) ? this.exports : [];
 
           if (features.length > 0) {
             this.map.addSource("exports", {
@@ -624,14 +613,77 @@
               },
             });
 
+            const centroids = features.map((f) => {
+              const coords = f.geometry.coordinates[0];
+              let x = 0,
+                y = 0,
+                n = coords.length;
+              coords.forEach(([lng, lat]) => {
+                x += lng;
+                y += lat;
+              });
+              return {
+                type: "Feature",
+                properties: {
+                  id: f.properties?.id || f.id,
+                  name: f.properties?.name || f.name,
+                },
+                geometry: { type: "Point", coordinates: [x / n, y / n] },
+              };
+            });
+
+            this.map.addSource("exports-centroids", {
+              type: "geojson",
+              data: { type: "FeatureCollection", features: centroids },
+              cluster: true,
+              clusterMaxZoom: 14,
+              clusterRadius: 40,
+            });
+
             this.map.addLayer({
-              id: "exports-line",
-              type: "line",
-              source: "exports",
+              id: "exports-cluster",
+              type: "circle",
+              source: "exports-centroids",
+              filter: ["has", "point_count"],
               paint: {
-                "line-color": "#059669",
-                "line-width": 2,
+                "circle-color": "#10b981",
+                "circle-radius": [
+                  "step",
+                  ["get", "point_count"],
+                  16,
+                  10,
+                  22,
+                  50,
+                  28,
+                ],
+                "circle-opacity": 0.7,
               },
+            });
+
+            this.map.addLayer({
+              id: "exports-cluster-count",
+              type: "symbol",
+              source: "exports-centroids",
+              filter: ["has", "point_count"],
+              layout: {
+                "text-field": ["get", "point_count"],
+                "text-font": ["Open Sans Bold"],
+                "text-size": 12,
+              },
+              paint: { "text-color": "#fff" },
+            });
+
+            this.map.once("idle", () => {
+              const allCoords = features.flatMap(
+                (f) => f.geometry.coordinates[0]
+              );
+              if (allCoords.length > 0) {
+                const bounds = allCoords.reduce(
+                  (b, coord) => b.extend(coord),
+                  new maplibregl.LngLatBounds(allCoords[0], allCoords[0])
+                );
+                this.map.fitBounds(bounds, { padding: 20 });
+              }
             });
           }
         }
