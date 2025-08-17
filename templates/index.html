@@ -533,10 +533,9 @@
           container.innerHTML = filteredExports
             .map((exp) => {
               const p = exp.properties || {};
+              const id = p.id || exp.id;
               return `
-                  <div class="bg-white rounded-lg border p-4 hover:shadow-md transition-shadow cursor-pointer" onclick="app.selectExport('${
-                    p.id || exp.id
-                  }')">
+                  <a href="/exports/${id}/" class="block bg-white rounded-lg border p-4 hover:shadow-md transition-shadow cursor-pointer">
                       <div class="flex justify-between items-start mb-2">
                           <h3 class="font-semibold text-gray-900">${
                             p.name || "Unnamed"
@@ -560,7 +559,7 @@
                               : ""
                           }</span>
                       </div>
-                  </div>
+                  </a>
               `;
             })
             .join("");

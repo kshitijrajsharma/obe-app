@@ -6,4 +6,9 @@ app_name = "frontend"
 
 urlpatterns = [
     path("", views.IndexView.as_view(), name="index"),
+    path(
+        "exports/<uuid:export_id>/",
+        views.ExportDetailView.as_view(),
+        name="export_detail",
+    ),
 ]

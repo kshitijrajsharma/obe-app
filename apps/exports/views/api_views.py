@@ -2,6 +2,7 @@ import json
 
 from django.contrib.gis.geos import GEOSGeometry
 from django.core.exceptions import ValidationError
+from django.db.models import Q
 from django.http import FileResponse, Http404
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema
@@ -23,7 +24,7 @@ from ..tasks import process_export
 @extend_schema(tags=["Exports"])
 class ExportListCreateView(generics.ListCreateAPIView):
     serializer_class = ExportSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = []
     filter_backends = [
         DjangoFilterBackend,
         filters.SearchFilter,
@@ -37,7 +38,10 @@ class ExportListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
             return Export.objects.none()
-        return Export.objects.filter(user=self.request.user)
+        user = self.request.user
+        if user.is_authenticated:
+            return Export.objects.filter(Q(user=user) | Q(is_public=True))
+        return Export.objects.filter(is_public=True)
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
@@ -46,18 +50,21 @@ class ExportListCreateView(generics.ListCreateAPIView):
 @extend_schema(tags=["Exports"])
 class ExportDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = ExportSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = []
 
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
             return Export.objects.none()
-        return Export.objects.filter(user=self.request.user)
+        user = self.request.user
+        if user.is_authenticated:
+            return Export.objects.filter(Q(user=user) | Q(is_public=True))
+        return Export.objects.filter(is_public=True)
 
 
 @extend_schema(tags=["Export Runs"])
 class ExportRunListView(generics.ListAPIView):
     serializer_class = ExportRunSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = []
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_class = ExportRunFilter
     ordering_fields = ["created_at", "started_at", "completed_at", "status"]
@@ -67,9 +74,12 @@ class ExportRunListView(generics.ListAPIView):
         if getattr(self, "swagger_fake_view", False):
             return ExportRun.objects.none()
         export_id = self.kwargs["export_id"]
-        return ExportRun.objects.filter(
-            export_id=export_id, export__user=self.request.user
-        )
+        user = self.request.user
+        if user.is_authenticated:
+            return ExportRun.objects.filter(export_id=export_id).filter(
+                Q(export__user=user) | Q(export__is_public=True)
+            )
+        return ExportRun.objects.filter(export_id=export_id, export__is_public=True)
 
 
 @extend_schema(tags=["Export Runs"])
@@ -93,12 +103,17 @@ class ExportRunCreateView(generics.CreateAPIView):
 @extend_schema(tags=["Export Runs"])
 class ExportRunDetailView(generics.RetrieveAPIView):
     serializer_class = ExportRunSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = []
 
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
             return ExportRun.objects.none()
-        return ExportRun.objects.filter(export__user=self.request.user)
+        user = self.request.user
+        if user.is_authenticated:
+            return ExportRun.objects.filter(
+                Q(export__user=user) | Q(export__is_public=True)
+            )
+        return ExportRun.objects.filter(export__is_public=True)
 
 
 @extend_schema(tags=["Export Runs"], request=None, responses={200: ExportRunSerializer})
