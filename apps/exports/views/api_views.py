@@ -45,7 +45,16 @@ class ExportListCreateView(generics.ListCreateAPIView):
         return Export.objects.filter(is_public=True)
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        export = serializer.save(user=self.request.user)
+
+        export_run = ExportRun.objects.create(export=export)
+
+        export_run.status = "queued"
+        export_run.save()
+
+        task = process_export.schedule((str(export_run.id),), delay=1)
+        export_run.task_id = task.id
+        export_run.save()
 
 
 @extend_schema(tags=["Exports"])

@@ -76,8 +76,8 @@
     </div>
 
     <div class="max-w-7xl mx-auto px-4 py-6">
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="lg:col-span-1">
+      <div id="main-grid" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div id="left-panel" class="lg:col-span-1">
           <div class="bg-white rounded-lg shadow-sm">
             <div id="exports-view" class="p-6">
               <div class="flex justify-between items-center mb-6">
@@ -275,7 +275,7 @@
           </div>
         </div>
 
-        <div class="lg:col-span-2">
+        <div id="right-panel" class="lg:col-span-2">
           <div class="bg-white rounded-lg shadow-sm p-4">
             <div id="map" class="w-full rounded border"></div>
           </div>
@@ -723,7 +723,24 @@
             .getElementById("show-mine")
             .classList.toggle("hidden", !this.user);
 
+          // Adjust layout based on current view
+          this.updateLayout();
           this.updateMap();
+        }
+
+        updateLayout() {
+          const leftPanel = document.getElementById("left-panel");
+          const rightPanel = document.getElementById("right-panel");
+
+          if (this.currentView === "detail") {
+            // For detail view, give more space to the left panel
+            leftPanel.className = "lg:col-span-2";
+            rightPanel.className = "lg:col-span-1";
+          } else {
+            // For other views, standard layout
+            leftPanel.className = "lg:col-span-1";
+            rightPanel.className = "lg:col-span-2";
+          }
         }
 
         renderAuth() {
@@ -761,12 +778,28 @@
                 .map((exp) => {
                   const p = exp.properties || {};
                   const id = p.id || exp.id;
-                  const statusColor =
-                    p.status === "completed"
-                      ? "green"
-                      : p.status === "processing"
-                      ? "yellow"
-                      : "red";
+
+                  // Determine processing status and color
+                  let status = "idle";
+                  let statusColor = "gray";
+
+                  if (p.is_processing === true) {
+                    status = "processing";
+                    statusColor = "yellow";
+                  } else if (p.latest_run) {
+                    status = p.latest_run.status || "unknown";
+                    statusColor =
+                      status === "completed"
+                        ? "green"
+                        : status === "processing"
+                        ? "yellow"
+                        : status === "queued"
+                        ? "blue"
+                        : status === "failed"
+                        ? "red"
+                        : "gray";
+                  }
+
                   return `
                         <div class="border rounded p-3 cursor-pointer hover:bg-gray-50" onclick="app.showDetail('${id}')">
                             <div class="flex justify-between items-start mb-2">
@@ -781,9 +814,9 @@
                                     }">
                                         ${p.is_public ? "Public" : "Private"}
                                     </span>
-                                    <span class="text-xs px-2 py-1 rounded bg-${statusColor}-100 text-${statusColor}-800">${
-                    p.is_processing || "unknown"
-                  }</span>
+                                    <span class="text-xs px-2 py-1 rounded bg-${statusColor}-100 text-${statusColor}-800">
+                                        ${status}
+                                    </span>
                                 </div>
                             </div>
                             <p class="text-sm text-gray-600 mb-2">${
