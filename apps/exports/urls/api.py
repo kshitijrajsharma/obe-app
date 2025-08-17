@@ -1,10 +1,12 @@
 from django.urls import path
 
 from ..views import api_views
+from ..views.api_root import APIRootView
 
 app_name = "api"
 
 urlpatterns = [
+    path("", APIRootView.as_view(), name="api-root"),
     # Export CRUD
     path("exports/", api_views.ExportListCreateView.as_view(), name="export_list"),
     path(
