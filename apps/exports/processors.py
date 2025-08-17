@@ -34,22 +34,18 @@ class BuildingStatsGenerator:
             "source": source,
         }
 
-        # Calculate area if geometry exists
         if hasattr(gdf, "geometry") and not gdf.geometry.empty:
             total_area = gdf.geometry.area.sum()
             stats["total_area_m2"] = float(total_area)
 
-        # Add dynamic stats based on available columns
         for column in gdf.columns:
             if column == "geometry":
                 continue
 
-            # Handle numeric columns
             if gdf[column].dtype in ["float64", "int64", "float32", "int32"]:
                 stats[f"{column}_mean"] = float(gdf[column].mean())
                 stats[f"{column}_sum"] = float(gdf[column].sum())
 
-            # Handle categorical columns with reasonable unique counts
             elif gdf[column].dtype == "object" and gdf[column].nunique() < 50:
                 value_counts = gdf[column].value_counts().to_dict()
                 stats[f"{column}_counts"] = value_counts
@@ -68,14 +64,11 @@ class BuildingProcessor:
         """Save AOI polygon to temporary GeoJSON file"""
         from shapely.geometry import mapping, shape
 
-        # Convert Django polygon to shapely
         geom_dict = mapping(django_polygon)
         shapely_polygon = shape(geom_dict)
 
-        # Create GeoDataFrame
         gdf = gpd.GeoDataFrame([1], geometry=[shapely_polygon], crs="EPSG:4326")
 
-        # Save to temporary file
         temp_file = tempfile.NamedTemporaryFile(
             mode="w", suffix=".geojson", delete=False
         )
@@ -95,26 +88,22 @@ class BuildingProcessor:
         temp_aoi_path = None
 
         try:
-            # Save AOI to temporary file
             temp_aoi_path = self._save_aoi_to_temp_file(area_of_interest)
 
-            # Get location from config if needed (for Microsoft)
             location = None
             if source == "microsoft" and source_config:
                 location = source_config.get("location")
 
             logger.info("Extracting buildings from source: %s", source)
 
-            # Use OBE to download buildings
             gdf = obe.download_buildings(
                 source=source,
                 input_path=temp_aoi_path,
-                output_path=None,  # Return GDF only
-                format=None,  # No format conversion
+                output_path=None,
+                format=None,
                 location=location,
             )
 
-            # Generate stats
             stats = BuildingStatsGenerator.generate_stats(gdf, source)
             stats["gdf"] = gdf
             stats["config_used"] = source_config or {}
@@ -130,7 +119,6 @@ class BuildingProcessor:
                 "gdf": None,
             }
         finally:
-            # Clean up temporary file
             if temp_aoi_path:
                 try:
                     os.unlink(temp_aoi_path)

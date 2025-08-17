@@ -38,7 +38,6 @@ def process_export(export_run_id: str) -> Dict[str, Any]:
 
         processor = BuildingProcessor()
 
-        # Extract data from all sources
         source_results = {}
         all_files = {}
         total_building_count = 0
@@ -46,7 +45,6 @@ def process_export(export_run_id: str) -> Dict[str, Any]:
         for source in sources:
             logger.info("Processing source: %s", source)
 
-            # Extract buildings from this source
             result = processor.extract_buildings(
                 area_of_interest=export.area_of_interest,
                 source=source,
@@ -60,12 +58,10 @@ def process_export(export_run_id: str) -> Dict[str, Any]:
             building_count = result.get("building_count", 0)
             total_building_count += building_count
 
-            # Remove GDF from result for storage (keep stats only)
             gdf = result.pop("gdf", None)
             source_results[source] = result
 
             if gdf is not None and not gdf.empty:
-                # Generate files for each format
                 source_files = {}
                 for output_format in output_formats:
                     logger.info("Generating %s file for %s", output_format, source)
@@ -97,7 +93,6 @@ def process_export(export_run_id: str) -> Dict[str, Any]:
             )
             return {"status": "completed", "building_count": 0}
 
-        # Package all files
         output_file_path = None
         if all_files:
             output_file_path = _package_files(
@@ -110,13 +105,11 @@ def process_export(export_run_id: str) -> Dict[str, Any]:
                     filename = Path(output_file_path).name
                     export_run.output_file.save(filename, file_content)
 
-                # Clean up the temporary packaged file
                 try:
                     os.unlink(output_file_path)
                 except OSError:
                     pass
 
-        # Clean up all temporary files
         for source_files in all_files.values():
             for file_info in source_files.values():
                 if file_info.get("file_path"):
@@ -125,7 +118,6 @@ def process_export(export_run_id: str) -> Dict[str, Any]:
                     except OSError:
                         pass
 
-        # Prepare final results
         final_results = {
             "status": "completed",
             "building_count": total_building_count,
@@ -170,36 +162,14 @@ def process_export(export_run_id: str) -> Dict[str, Any]:
 
 
 def _package_files(all_files: Dict, export_name: str, created_at) -> str:
-    """Package all files into a single archive"""
+    """Package all files into a compressed zip archive"""
     temp_dir = Path(tempfile.mkdtemp())
-
-    # Count total files to determine packaging strategy
-    total_files = sum(len(source_files) for source_files in all_files.values())
-
-    if total_files == 1:
-        # Single file - return it directly (rename it appropriately)
-        for source_files in all_files.values():
-            for file_info in source_files.values():
-                original_path = Path(file_info["file_path"])
-                new_path = (
-                    temp_dir
-                    / f"{export_name}_{created_at.strftime('%Y%m%d_%H%M%S')}{original_path.suffix}"
-                )
-
-                # Copy file to new location
-                import shutil
-
-                shutil.copy2(original_path, new_path)
-                return str(new_path)
-
-    # Multiple files - create a zip
     zip_path = temp_dir / f"{export_name}_{created_at.strftime('%Y%m%d_%H%M%S')}.zip"
 
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
         for source, source_files in all_files.items():
             for format_name, file_info in source_files.items():
                 file_path = Path(file_info["file_path"])
-                # Create a meaningful name in the zip
                 archive_name = f"{source}_{format_name}{file_path.suffix}"
                 zipf.write(file_path, archive_name)
 
