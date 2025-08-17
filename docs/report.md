@@ -113,13 +113,6 @@ The application exposes RESTful API endpoints for:
 - Multiple output format support for compatibility with GIS software
 - User authentication and export management system
 
-### Example Use Cases
-
-- **Urban planning**: Draw a polygon around a neighborhood to extract building footprints for development analysis
-- **Research**: Export building data for multiple cities to study urban growth patterns
-- **Emergency response**: Quickly extract building data for disaster-affected areas in multiple formats
-- **Data validation**: Compare building coverage across different data sources for quality assessment
-
 ### How This Addresses the Problem
 
 - It provides a simple web interface that requires no technical knowledge to extract building data
