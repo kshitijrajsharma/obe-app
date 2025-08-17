@@ -132,6 +132,12 @@
                   required
                   class="w-full px-3 py-2 border rounded focus:border-emerald-500"
                 />
+                <input
+                  id="password-confirm"
+                  type="password"
+                  placeholder="Confirm Password"
+                  class="hidden w-full px-3 py-2 border rounded focus:border-emerald-500"
+                />
                 <div id="auth-error" class="hidden text-red-600 text-sm"></div>
                 <div class="flex space-x-3">
                   <button
@@ -546,13 +552,31 @@
           e.preventDefault();
           const username = document.getElementById("username").value;
           const password = document.getElementById("password").value;
+          const passwordConfirm =
+            document.getElementById("password-confirm").value;
           const email = document.getElementById("email").value;
+
+          // Clear any previous errors
+          document.getElementById("auth-error").classList.add("hidden");
+
+          // Validate password confirmation for signup
+          if (!this.isLogin && password !== passwordConfirm) {
+            document.getElementById("auth-error").textContent =
+              "Passwords do not match";
+            document.getElementById("auth-error").classList.remove("hidden");
+            return;
+          }
 
           try {
             const endpoint = this.isLogin ? "/auth/login/" : "/auth/register/";
             const body = this.isLogin
               ? { username, password }
-              : { username, password, email };
+              : {
+                  username,
+                  password,
+                  password_confirm: passwordConfirm,
+                  email,
+                };
 
             const data = await this.apiCall(endpoint, {
               method: "POST",
@@ -711,6 +735,9 @@
             : "Sign Up";
           document
             .getElementById("email")
+            .classList.toggle("hidden", this.isLogin);
+          document
+            .getElementById("password-confirm")
             .classList.toggle("hidden", this.isLogin);
           document.getElementById("auth-toggle").textContent = this.isLogin
             ? "Don't have an account? Sign up"

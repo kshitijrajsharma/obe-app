@@ -31,13 +31,13 @@ services:
     build: .
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
-      - .:/app
       - media_files:/app/media
     ports:
       - "8000:8000"
     environment:
       - DEBUG=True
-      - DATABASE_URL=postgres://postgres:postgres@db:5432/obe_app
+      - SECRET_KEY=django-insecure-docker-compose-development-key
+      - DATABASE_URL=postgis://postgres:postgres@db:5432/obe_app
       - REDIS_URL=redis://redis:6379/0
     depends_on:
       db:
@@ -49,11 +49,11 @@ services:
     build: .
     command: python manage.py run_huey
     volumes:
-      - .:/app
       - media_files:/app/media
     environment:
       - DEBUG=True
-      - DATABASE_URL=postgres://postgres:postgres@db:5432/obe_app
+      - SECRET_KEY=django-insecure-docker-compose-development-key
+      - DATABASE_URL=postgis://postgres:postgres@db:5432/obe_app
       - REDIS_URL=redis://redis:6379/0
     depends_on:
       db:
