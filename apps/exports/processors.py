@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import tempfile
@@ -5,13 +6,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 from django.contrib.gis.geos import Polygon
-
-try:
-    import geopandas as gpd
-    import obe
-except ImportError:
-    obe = None
-    gpd = None
+from obe.app import download_buildings
 
 logger = logging.getLogger(__name__)
 
@@ -35,20 +30,13 @@ class BuildingStatsGenerator:
         }
 
         if hasattr(gdf, "geometry") and not gdf.geometry.empty:
-            total_area = gdf.geometry.area.sum()
-            stats["total_area_m2"] = float(total_area)
-
-        for column in gdf.columns:
-            if column == "geometry":
-                continue
-
-            if gdf[column].dtype in ["float64", "int64", "float32", "int32"]:
-                stats[f"{column}_mean"] = float(gdf[column].mean())
-                stats[f"{column}_sum"] = float(gdf[column].sum())
-
-            elif gdf[column].dtype == "object" and gdf[column].nunique() < 50:
-                value_counts = gdf[column].value_counts().to_dict()
-                stats[f"{column}_counts"] = value_counts
+            try:
+                gdf_projected = gdf.to_crs("EPSG:3857")
+                total_area = gdf_projected.geometry.area.sum()
+                stats["total_area_m2"] = float(total_area)
+            except Exception as e:
+                logger.warning("Could not calculate area: %s", str(e))
+                stats["total_area_m2"] = 0
 
         return stats
 
@@ -57,25 +45,31 @@ class BuildingProcessor:
     """Simplified building processor using OBE library"""
 
     def __init__(self):
-        if obe is None:
-            raise ImportError("OBE library not available")
+        pass
 
     def _save_aoi_to_temp_file(self, django_polygon: Polygon) -> str:
         """Save AOI polygon to temporary GeoJSON file"""
-        from shapely.geometry import mapping, shape
 
-        geom_dict = mapping(django_polygon)
-        shapely_polygon = shape(geom_dict)
-
-        gdf = gpd.GeoDataFrame([1], geometry=[shapely_polygon], crs="EPSG:4326")
+        geojson_data = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": json.loads(django_polygon.geojson),
+                    "properties": {},
+                }
+            ],
+        }
 
         temp_file = tempfile.NamedTemporaryFile(
             mode="w", suffix=".geojson", delete=False
         )
         temp_path = temp_file.name
+        logger.info("Saving AOI to temporary file: %s", temp_path)
+
+        json.dump(geojson_data, temp_file, indent=2)
         temp_file.close()
 
-        gdf.to_file(temp_path, driver="GeoJSON")
         return temp_path
 
     def extract_buildings(
@@ -96,7 +90,7 @@ class BuildingProcessor:
 
             logger.info("Extracting buildings from source: %s", source)
 
-            gdf = obe.download_buildings(
+            gdf = download_buildings(
                 source=source,
                 input_path=temp_aoi_path,
                 output_path=None,
@@ -111,6 +105,7 @@ class BuildingProcessor:
             return stats
 
         except Exception as e:
+            raise e
             logger.error("Failed to extract buildings from %s: %s", source, str(e))
             return {
                 "building_count": 0,
