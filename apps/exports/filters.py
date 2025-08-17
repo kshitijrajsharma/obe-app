@@ -1,19 +1,11 @@
 import django_filters
 
-from .models import (
-    EXPORT_STATUS_CHOICES,
-    OUTPUT_FORMAT_CHOICES,
-    SOURCE_CHOICES,
-    Export,
-    ExportRun,
-)
+from .models import EXPORT_STATUS_CHOICES, Export, ExportRun
 
 
 class ExportFilter(django_filters.FilterSet):
     """Filter for Export model"""
 
-    source = django_filters.ChoiceFilter(choices=SOURCE_CHOICES)
-    output_format = django_filters.ChoiceFilter(choices=OUTPUT_FORMAT_CHOICES)
     is_public = django_filters.BooleanFilter()
     created_after = django_filters.DateTimeFilter(
         field_name="created_at", lookup_expr="gte"
@@ -31,8 +23,6 @@ class ExportFilter(django_filters.FilterSet):
     class Meta:
         model = Export
         fields = [
-            "source",
-            "output_format",
             "is_public",
             "created_after",
             "created_before",

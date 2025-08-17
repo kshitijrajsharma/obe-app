@@ -293,7 +293,7 @@ class PublicExportListView(generics.ListAPIView):
         filters.SearchFilter,
         filters.OrderingFilter,
     ]
-    filterset_fields = ["source", "output_format"]
+    filterset_fields = []
     search_fields = ["name", "description"]
     ordering_fields = ["created_at", "name"]
     ordering = ["-created_at"]
