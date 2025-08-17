@@ -256,7 +256,8 @@
         initMap() {
           this.map = new maplibregl.Map({
             container: "map",
-            style: "https://demotiles.maplibre.org/style.json",
+            style:
+              "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
             center: [0, 20],
             zoom: 2,
           });
@@ -361,7 +362,7 @@
         toggleFilter(showMine) {
           this.showingMine = showMine;
           this.updateFilterUI();
-          this.renderExports();
+          this.loadExports();
         }
 
         updateFilterUI() {
@@ -489,8 +490,21 @@
 
         async loadExports() {
           try {
-            const data = await this.apiCall("/exports/?ordering=-created_at");
-            this.exports = data.results || [];
+            let data;
+            if (this.showingMine && this.isAuthenticated()) {
+              data = await this.apiCall("/exports/?ordering=-created_at");
+              this.exports = Array.isArray(data.results) ? data.results : [];
+            } else {
+              data = await this.apiCall(
+                "/public/exports/?ordering=-created_at"
+              );
+              this.exports = Array.isArray(data.results?.features)
+                ? data.results.features.map((f) => ({
+                    ...f.properties,
+                    geometry: f.geometry,
+                  }))
+                : [];
+            }
             this.renderExports();
             this.updateMap();
           } catch (error) {
@@ -502,13 +516,13 @@
 
         renderExports() {
           const container = document.getElementById("exports-list");
-          let filteredExports = this.exports;
+          let filteredExports = Array.isArray(this.exports) ? this.exports : [];
 
           if (this.showingMine && this.isAuthenticated()) {
-            filteredExports = this.exports.filter((exp) => exp.user);
+            filteredExports = filteredExports.filter((exp) => exp.user);
           }
 
-          if (filteredExports.length === 0) {
+          if (!Array.isArray(filteredExports) || filteredExports.length === 0) {
             container.innerHTML = `
                         <div class="text-center py-8 text-gray-500">
                             ${
@@ -575,13 +589,24 @@
             this.map.removeSource("exports");
           }
 
-          const features = this.exports
-            .filter((exp) => exp.area_of_interest)
-            .map((exp) => ({
-              type: "Feature",
-              properties: { id: exp.id, name: exp.name },
-              geometry: exp.area_of_interest,
-            }));
+          const features = (Array.isArray(this.exports) ? this.exports : [])
+            .filter((exp) => exp.geometry)
+            .map((exp) => {
+              let geometry = exp.geometry;
+              if (
+                typeof geometry === "string" &&
+                geometry.startsWith("SRID=")
+              ) {
+                // Optionally: convert WKT to GeoJSON here if needed
+                return null;
+              }
+              return {
+                type: "Feature",
+                properties: { id: exp.id, name: exp.name },
+                geometry,
+              };
+            })
+            .filter(Boolean);
 
           if (features.length > 0) {
             this.map.addSource("exports", {
