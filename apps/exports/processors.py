@@ -1,8 +1,8 @@
 import logging
+import os
 import tempfile
-from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from django.contrib.gis.geos import Polygon
 
@@ -16,28 +16,133 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-class BaseProcessor(ABC):
-    @abstractmethod
-    def process(
-        self,
-        area_of_interest: Polygon,
-        source_config: Dict[str, Any],
-        output_format: str,
-    ) -> Dict[str, Any]:
-        pass
+class BuildingStatsGenerator:
+    """Generate statistics from building GeoDataFrame"""
 
-    def _convert_django_polygon_to_shapely(self, django_polygon: Polygon):
+    @staticmethod
+    def generate_stats(gdf, source: str) -> Dict[str, Any]:
+        """Generate dynamic statistics from GeoDataFrame"""
+        if gdf is None or gdf.empty:
+            return {
+                "building_count": 0,
+                "total_area_m2": 0,
+                "message": "No buildings found",
+            }
+
+        stats = {
+            "building_count": len(gdf),
+            "source": source,
+        }
+
+        # Calculate area if geometry exists
+        if hasattr(gdf, "geometry") and not gdf.geometry.empty:
+            total_area = gdf.geometry.area.sum()
+            stats["total_area_m2"] = float(total_area)
+
+        # Add dynamic stats based on available columns
+        for column in gdf.columns:
+            if column == "geometry":
+                continue
+
+            # Handle numeric columns
+            if gdf[column].dtype in ["float64", "int64", "float32", "int32"]:
+                stats[f"{column}_mean"] = float(gdf[column].mean())
+                stats[f"{column}_sum"] = float(gdf[column].sum())
+
+            # Handle categorical columns with reasonable unique counts
+            elif gdf[column].dtype == "object" and gdf[column].nunique() < 50:
+                value_counts = gdf[column].value_counts().to_dict()
+                stats[f"{column}_counts"] = value_counts
+
+        return stats
+
+
+class BuildingProcessor:
+    """Simplified building processor using OBE library"""
+
+    def __init__(self):
+        if obe is None:
+            raise ImportError("OBE library not available")
+
+    def _save_aoi_to_temp_file(self, django_polygon: Polygon) -> str:
+        """Save AOI polygon to temporary GeoJSON file"""
         from shapely.geometry import mapping, shape
 
+        # Convert Django polygon to shapely
         geom_dict = mapping(django_polygon)
-        return shape(geom_dict)
+        shapely_polygon = shape(geom_dict)
 
-    def _save_output(
+        # Create GeoDataFrame
+        gdf = gpd.GeoDataFrame([1], geometry=[shapely_polygon], crs="EPSG:4326")
+
+        # Save to temporary file
+        temp_file = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".geojson", delete=False
+        )
+        temp_path = temp_file.name
+        temp_file.close()
+
+        gdf.to_file(temp_path, driver="GeoJSON")
+        return temp_path
+
+    def extract_buildings(
+        self,
+        area_of_interest: Polygon,
+        source: str,
+        source_config: Dict[str, Any] = None,
+    ) -> Dict[str, Any]:
+        """Extract buildings from a single source"""
+        temp_aoi_path = None
+
+        try:
+            # Save AOI to temporary file
+            temp_aoi_path = self._save_aoi_to_temp_file(area_of_interest)
+
+            # Get location from config if needed (for Microsoft)
+            location = None
+            if source == "microsoft" and source_config:
+                location = source_config.get("location")
+
+            logger.info("Extracting buildings from source: %s", source)
+
+            # Use OBE to download buildings
+            gdf = obe.download_buildings(
+                source=source,
+                input_path=temp_aoi_path,
+                output_path=None,  # Return GDF only
+                format=None,  # No format conversion
+                location=location,
+            )
+
+            # Generate stats
+            stats = BuildingStatsGenerator.generate_stats(gdf, source)
+            stats["gdf"] = gdf
+            stats["config_used"] = source_config or {}
+
+            return stats
+
+        except Exception as e:
+            logger.error("Failed to extract buildings from %s: %s", source, str(e))
+            return {
+                "building_count": 0,
+                "source": source,
+                "error": str(e),
+                "gdf": None,
+            }
+        finally:
+            # Clean up temporary file
+            if temp_aoi_path:
+                try:
+                    os.unlink(temp_aoi_path)
+                except OSError:
+                    pass
+
+    def save_gdf_to_format(
         self, gdf, output_format: str, base_filename: str
-    ) -> Optional[str]:
+    ) -> Dict[str, Any]:
+        """Save GeoDataFrame to specified format and return file info"""
         if gdf is None or gdf.empty:
-            logger.warning("No data to save")
-            return None
+            return {"error": "No data to save"}
 
         try:
             temp_dir = Path(tempfile.mkdtemp())
@@ -45,241 +150,32 @@ class BaseProcessor(ABC):
             if output_format == "geoparquet":
                 file_path = temp_dir / f"{base_filename}.parquet"
                 gdf.to_parquet(file_path)
-
             elif output_format == "geojson":
                 file_path = temp_dir / f"{base_filename}.geojson"
                 gdf.to_file(file_path, driver="GeoJSON")
-
             elif output_format == "shapefile":
                 file_path = temp_dir / f"{base_filename}.shp"
                 gdf.to_file(file_path, driver="ESRI Shapefile")
-
             elif output_format == "geopackage":
                 file_path = temp_dir / f"{base_filename}.gpkg"
                 gdf.to_file(file_path, driver="GPKG")
-
             else:
                 raise ValueError(f"Unsupported output format: {output_format}")
 
-            logger.info(f"Saved {len(gdf)} buildings to {file_path}")
-            return str(file_path)
-
-        except Exception as e:
-            logger.error(f"Failed to save output: {str(e)}")
-            return None
-
-
-class GoogleProcessor(BaseProcessor):
-    def process(
-        self,
-        area_of_interest: Polygon,
-        source_config: Dict[str, Any],
-        output_format: str,
-    ) -> Dict[str, Any]:
-        if obe is None:
-            raise ImportError("OBE library not available")
-
-        try:
-            aoi_shapely = self._convert_django_polygon_to_shapely(area_of_interest)
-            confidence_threshold = source_config.get("confidence_threshold", 0.7)
-
-            logger.info(
-                f"Extracting Google buildings with confidence >= {confidence_threshold}"
-            )
-
-            gdf = obe.download_google_buildings(
-                aoi_shapely, confidence_threshold=confidence_threshold
-            )
-
-            if gdf is None or gdf.empty:
-                return {
-                    "status": "completed",
-                    "building_count": 0,
-                    "message": "No buildings found in the specified area",
-                }
-
-            file_path = self._save_output(gdf, output_format, "google_buildings")
-
-            total_area = gdf.geometry.area.sum() if hasattr(gdf.geometry, "area") else 0
-            avg_confidence = (
-                gdf["confidence"].mean() if "confidence" in gdf.columns else 0
-            )
+            logger.info("Saved %s buildings to %s format", len(gdf), output_format)
 
             return {
-                "status": "completed",
+                "file_path": str(file_path),
+                "format": output_format,
+                "size_bytes": file_path.stat().st_size,
                 "building_count": len(gdf),
-                "total_area_m2": float(total_area),
-                "average_confidence": float(avg_confidence),
-                "file_path": file_path,
-                "source": "google",
-                "config_used": source_config,
             }
 
         except Exception as e:
-            logger.error(f"Google processor failed: {str(e)}")
-            raise
-
-
-class MicrosoftProcessor(BaseProcessor):
-    def process(
-        self,
-        area_of_interest: Polygon,
-        source_config: Dict[str, Any],
-        output_format: str,
-    ) -> Dict[str, Any]:
-        if obe is None:
-            raise ImportError("OBE library not available")
-
-        try:
-            aoi_shapely = self._convert_django_polygon_to_shapely(area_of_interest)
-            region = source_config.get("region", "global")
-
-            logger.info(f"Extracting Microsoft buildings for region: {region}")
-
-            gdf = obe.download_microsoft_buildings(aoi_shapely, region=region)
-
-            if gdf is None or gdf.empty:
-                return {
-                    "status": "completed",
-                    "building_count": 0,
-                    "message": "No buildings found in the specified area",
-                }
-
-            file_path = self._save_output(gdf, output_format, "microsoft_buildings")
-            total_area = gdf.geometry.area.sum() if hasattr(gdf.geometry, "area") else 0
-
-            return {
-                "status": "completed",
-                "building_count": len(gdf),
-                "total_area_m2": float(total_area),
-                "file_path": file_path,
-                "source": "microsoft",
-                "region": region,
-                "config_used": source_config,
-            }
-
-        except Exception as e:
-            logger.error(f"Microsoft processor failed: {str(e)}")
-            raise
-
-
-class OSMProcessor(BaseProcessor):
-    def process(
-        self,
-        area_of_interest: Polygon,
-        source_config: Dict[str, Any],
-        output_format: str,
-    ) -> Dict[str, Any]:
-        if obe is None:
-            raise ImportError("OBE library not available")
-
-        try:
-            aoi_shapely = self._convert_django_polygon_to_shapely(area_of_interest)
-            building_types = source_config.get(
-                "building_types",
-                ["yes", "house", "apartments", "commercial", "industrial"],
+            logger.error(
+                "Failed to save %s in %s format: %s",
+                base_filename,
+                output_format,
+                str(e),
             )
-
-            logger.info(f"Extracting OSM buildings with types: {building_types}")
-
-            gdf = obe.download_osm_buildings(aoi_shapely, building_types=building_types)
-
-            if gdf is None or gdf.empty:
-                return {
-                    "status": "completed",
-                    "building_count": 0,
-                    "message": "No buildings found in the specified area",
-                }
-
-            file_path = self._save_output(gdf, output_format, "osm_buildings")
-
-            total_area = gdf.geometry.area.sum() if hasattr(gdf.geometry, "area") else 0
-            building_type_counts = (
-                gdf["building"].value_counts().to_dict()
-                if "building" in gdf.columns
-                else {}
-            )
-
-            return {
-                "status": "completed",
-                "building_count": len(gdf),
-                "total_area_m2": float(total_area),
-                "building_type_counts": building_type_counts,
-                "file_path": file_path,
-                "source": "osm",
-                "config_used": source_config,
-            }
-
-        except Exception as e:
-            logger.error(f"OSM processor failed: {str(e)}")
-            raise
-
-
-class OvertureProcessor(BaseProcessor):
-    def process(
-        self,
-        area_of_interest: Polygon,
-        source_config: Dict[str, Any],
-        output_format: str,
-    ) -> Dict[str, Any]:
-        if obe is None:
-            raise ImportError("OBE library not available")
-
-        try:
-            aoi_shapely = self._convert_django_polygon_to_shapely(area_of_interest)
-            include_height = source_config.get("include_height", True)
-            min_area = source_config.get("min_area", 10)
-
-            logger.info(
-                f"Extracting Overture buildings (min_area: {min_area}, include_height: {include_height})"
-            )
-
-            gdf = obe.download_overture_buildings(
-                aoi_shapely, include_height=include_height, min_area=min_area
-            )
-
-            if gdf is None or gdf.empty:
-                return {
-                    "status": "completed",
-                    "building_count": 0,
-                    "message": "No buildings found in the specified area",
-                }
-
-            file_path = self._save_output(gdf, output_format, "overture_buildings")
-
-            total_area = gdf.geometry.area.sum() if hasattr(gdf.geometry, "area") else 0
-            avg_height = gdf["height"].mean() if "height" in gdf.columns else None
-
-            results = {
-                "status": "completed",
-                "building_count": len(gdf),
-                "total_area_m2": float(total_area),
-                "file_path": file_path,
-                "source": "overture",
-                "config_used": source_config,
-            }
-
-            if avg_height is not None:
-                results["average_height_m"] = float(avg_height)
-
-            return results
-
-        except Exception as e:
-            logger.error(f"Overture processor failed: {str(e)}")
-            raise
-
-
-PROCESSORS = {
-    "google": GoogleProcessor,
-    "microsoft": MicrosoftProcessor,
-    "osm": OSMProcessor,
-    "overture": OvertureProcessor,
-}
-
-
-def get_processor(source: str):
-    if source not in PROCESSORS:
-        raise ValueError(f"Unsupported source: {source}")
-
-    processor_class = PROCESSORS[source]
-    return processor_class()
+            return {"error": str(e)}

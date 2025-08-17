@@ -542,7 +542,7 @@ wheels = [
 
 [[package]]
 name = "obe"
-version = "0.0.6"
+version = "0.0.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "geopandas" },
@@ -554,9 +554,9 @@ dependencies = [
     { name = "shapely" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/19/31/0f54ee7daa5f9edcb985cbb49a0c31386807336d0d2a2100657c17cc103b/obe-0.0.6.tar.gz", hash = "sha256:89877512ff0961d4384d12446344aa4371cf5d9e1e8ebd922391129d9ca1b6ed", size = 6186, upload-time = "2025-03-03T16:29:52.835Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/1d/15/cb0fa28e3e9f6564316528b4b9f6ad195a8a56ca0284cf4c3a8181ceaea7/obe-0.0.7.tar.gz", hash = "sha256:51efee08836b229e0653c35ddc64f45ec3660e791e3a279538ac0a7351f9090e", size = 6238, upload-time = "2025-08-17T12:30:49.615Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a7/7e/920d88e3d9ceefd97b982b732f935108893ecca8d68db9007de590f8d40a/obe-0.0.6-py3-none-any.whl", hash = "sha256:b04edd53a2d098908a0894f607a797dd6ceaa1c01f2088d5b49dc9810ac97ee0", size = 10224, upload-time = "2025-03-03T16:29:50.886Z" },
+    { url = "https://files.pythonhosted.org/packages/f1/8d/7a94d7542caf65cfc8792d9c9c56a6c3b9492cf3abb575e2a6f399f7f954/obe-0.0.7-py3-none-any.whl", hash = "sha256:d57cbb4d600f512bc705db169072aa06177e788c0ecd7ab1a0b69200e536b435", size = 10237, upload-time = "2025-08-17T12:30:48.508Z" },
 ]
 
 [[package]]
@@ -601,7 +601,7 @@ requires-dist = [
     { name = "drf-spectacular", specifier = ">=0.27.0" },
     { name = "gunicorn", specifier = ">=23.0.0" },
     { name = "huey", specifier = ">=2.5.3" },
-    { name = "obe", specifier = ">=0.0.6" },
+    { name = "obe", specifier = ">=0.0.7" },
     { name = "psycopg2", specifier = ">=2.9.10" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "redis", specifier = ">=6.4.0" },

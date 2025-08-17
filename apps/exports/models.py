@@ -33,44 +33,27 @@ EXPORT_STATUS_CHOICES = [
 SOURCE_CONFIG_SCHEMA = {
     "google": {
         "type": "object",
-        "properties": {
-            "confidence_threshold": {
-                "type": "number",
-                "minimum": 0.0,
-                "maximum": 1.0,
-                "default": 0.7,
-            }
-        },
+        "properties": {},
         "additionalProperties": False,
     },
     "microsoft": {
         "type": "object",
         "properties": {
-            "region": {
+            "location": {
                 "type": "string",
-                "enum": ["us", "canada", "africa", "australia", "global"],
-                "default": "global",
+                "description": "Country or region name for filtering Microsoft building data",
             }
         },
         "additionalProperties": False,
     },
     "osm": {
         "type": "object",
-        "properties": {
-            "building_types": {
-                "type": "array",
-                "items": {"type": "string"},
-                "default": ["yes", "house", "apartments", "commercial", "industrial"],
-            }
-        },
+        "properties": {},
         "additionalProperties": False,
     },
     "overture": {
         "type": "object",
-        "properties": {
-            "include_height": {"type": "boolean", "default": True},
-            "min_area": {"type": "number", "minimum": 0, "default": 10},
-        },
+        "properties": {},
         "additionalProperties": False,
     },
 }

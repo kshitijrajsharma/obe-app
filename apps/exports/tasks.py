@@ -1,5 +1,7 @@
 import logging
 import os
+import tempfile
+import zipfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
@@ -11,7 +13,7 @@ from django.template.loader import render_to_string
 from huey.contrib.djhuey import task
 
 from .models import ExportRun
-from .processors import get_processor
+from .processors import BuildingProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -24,47 +26,136 @@ def process_export(export_run_id: str) -> Dict[str, Any]:
         export_run.started_at = datetime.now()
         export_run.save()
 
-        logger.info(f"Starting export processing for run {export_run_id}")
+        logger.info("Starting export processing for run %s", export_run_id)
 
-        processor = get_processor(export_run.export.source)
-
-        result = processor.process(
-            area_of_interest=export_run.export.area_of_interest,
-            source_config=export_run.export.source_config,
-            output_format=export_run.export.output_format,
+        export = export_run.export
+        sources = export.source if isinstance(export.source, list) else [export.source]
+        output_formats = (
+            export.output_format
+            if isinstance(export.output_format, list)
+            else [export.output_format]
         )
 
-        if result.get("file_path"):
-            file_path = Path(result["file_path"])
-            with open(file_path, "rb") as f:
-                file_content = ContentFile(f.read())
-                filename = f"{export_run.export.name}_{export_run.created_at.strftime('%Y%m%d_%H%M%S')}{file_path.suffix}"
-                export_run.output_file.save(filename, file_content)
+        processor = BuildingProcessor()
 
-            os.unlink(file_path)
+        # Extract data from all sources
+        source_results = {}
+        all_files = {}
+        total_building_count = 0
 
-        export_run.results = result
+        for source in sources:
+            logger.info("Processing source: %s", source)
+
+            # Extract buildings from this source
+            result = processor.extract_buildings(
+                area_of_interest=export.area_of_interest,
+                source=source,
+                source_config=export.source_config,
+            )
+
+            if result.get("error"):
+                source_results[source] = result
+                continue
+
+            building_count = result.get("building_count", 0)
+            total_building_count += building_count
+
+            # Remove GDF from result for storage (keep stats only)
+            gdf = result.pop("gdf", None)
+            source_results[source] = result
+
+            if gdf is not None and not gdf.empty:
+                # Generate files for each format
+                source_files = {}
+                for output_format in output_formats:
+                    logger.info("Generating %s file for %s", output_format, source)
+
+                    file_info = processor.save_gdf_to_format(
+                        gdf, output_format, f"{source}_buildings"
+                    )
+
+                    if not file_info.get("error"):
+                        source_files[output_format] = file_info
+
+                all_files[source] = source_files
+
+            logger.info("Processed %s buildings from %s", building_count, source)
+
+        if total_building_count == 0:
+            export_run.results = {
+                "status": "completed",
+                "building_count": 0,
+                "message": "No buildings found from any source",
+                "sources": source_results,
+            }
+            export_run.status = "completed"
+            export_run.completed_at = datetime.now()
+            export_run.save()
+
+            logger.info(
+                "Export processing completed for run %s - no data found", export_run_id
+            )
+            return {"status": "completed", "building_count": 0}
+
+        # Package all files
+        output_file_path = None
+        if all_files:
+            output_file_path = _package_files(
+                all_files, export.name, export_run.created_at
+            )
+
+            if output_file_path:
+                with open(output_file_path, "rb") as f:
+                    file_content = ContentFile(f.read())
+                    filename = Path(output_file_path).name
+                    export_run.output_file.save(filename, file_content)
+
+                # Clean up the temporary packaged file
+                try:
+                    os.unlink(output_file_path)
+                except OSError:
+                    pass
+
+        # Clean up all temporary files
+        for source_files in all_files.values():
+            for file_info in source_files.values():
+                if file_info.get("file_path"):
+                    try:
+                        os.unlink(file_info["file_path"])
+                    except OSError:
+                        pass
+
+        # Prepare final results
+        final_results = {
+            "status": "completed",
+            "building_count": total_building_count,
+            "sources": source_results,
+            "output_formats": output_formats,
+            "files": all_files,
+        }
+
+        export_run.results = final_results
         export_run.status = "completed"
         export_run.completed_at = datetime.now()
         export_run.save()
 
-        logger.info(f"Export processing completed for run {export_run_id}")
+        logger.info("Export processing completed for run %s", export_run_id)
 
         if export_run.export.user.email_notifications and export_run.export.user.email:
             send_export_completion_email.schedule((export_run_id,), delay=30)
 
         return {
             "status": "completed",
-            "building_count": result.get("building_count", 0),
+            "building_count": total_building_count,
             "file_size": export_run.file_size,
         }
 
     except ExportRun.DoesNotExist:
-        logger.error(f"ExportRun {export_run_id} not found")
+        logger.error("ExportRun %s not found", export_run_id)
         return {"status": "failed", "error": "Export run not found"}
 
     except Exception as e:
-        logger.error(f"Export processing failed for run {export_run_id}: {str(e)}")
+        logger.error("Export processing failed for run %s: %s", export_run_id, str(e))
 
         try:
             export_run = ExportRun.objects.get(id=export_run_id)
@@ -76,6 +167,43 @@ def process_export(export_run_id: str) -> Dict[str, Any]:
             pass
 
         return {"status": "failed", "error": str(e)}
+
+
+def _package_files(all_files: Dict, export_name: str, created_at) -> str:
+    """Package all files into a single archive"""
+    temp_dir = Path(tempfile.mkdtemp())
+
+    # Count total files to determine packaging strategy
+    total_files = sum(len(source_files) for source_files in all_files.values())
+
+    if total_files == 1:
+        # Single file - return it directly (rename it appropriately)
+        for source_files in all_files.values():
+            for file_info in source_files.values():
+                original_path = Path(file_info["file_path"])
+                new_path = (
+                    temp_dir
+                    / f"{export_name}_{created_at.strftime('%Y%m%d_%H%M%S')}{original_path.suffix}"
+                )
+
+                # Copy file to new location
+                import shutil
+
+                shutil.copy2(original_path, new_path)
+                return str(new_path)
+
+    # Multiple files - create a zip
+    zip_path = temp_dir / f"{export_name}_{created_at.strftime('%Y%m%d_%H%M%S')}.zip"
+
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+        for source, source_files in all_files.items():
+            for format_name, file_info in source_files.items():
+                file_path = Path(file_info["file_path"])
+                # Create a meaningful name in the zip
+                archive_name = f"{source}_{format_name}{file_path.suffix}"
+                zipf.write(file_path, archive_name)
+
+    return str(zip_path)
 
 
 @task()
@@ -110,16 +238,18 @@ def send_export_completion_email(export_run_id: str) -> bool:
         )
 
         logger.info(
-            f"Sent completion email to {user.email} for export run {export_run_id}"
+            "Sent completion email to %s for export run %s", user.email, export_run_id
         )
         return True
 
     except ExportRun.DoesNotExist:
-        logger.error(f"ExportRun {export_run_id} not found for email notification")
+        logger.error("ExportRun %s not found for email notification", export_run_id)
         return False
 
     except Exception as e:
-        logger.error(f"Failed to send email for export run {export_run_id}: {str(e)}")
+        logger.error(
+            "Failed to send email for export run %s: %s", export_run_id, str(e)
+        )
         return False
 
 
@@ -144,13 +274,13 @@ def cleanup_old_exports():
                 run.output_file.delete()
                 deleted_files += 1
             except Exception as e:
-                logger.warning(f"Failed to delete file for run {run.id}: {str(e)}")
+                logger.warning("Failed to delete file for run %s: %s", run.id, str(e))
 
         run.delete()
         deleted_runs += 1
 
     logger.info(
-        f"Cleanup completed: {deleted_runs} runs and {deleted_files} files deleted"
+        "Cleanup completed: %s runs and %s files deleted", deleted_runs, deleted_files
     )
 
     return {"deleted_runs": deleted_runs, "deleted_files": deleted_files}
