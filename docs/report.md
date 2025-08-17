@@ -147,3 +147,14 @@ This was a solo project.
 - **Frontend (vanilla JS + Django templates + Tailwind)**: MapLibre GL integration; Terradraw setup for drawing and editing the AOI; layer toggles; stats panel; wiring to backend endpoints
 - **Spatial logic and stats**: Intersections and basic overlap indicators across sources; per‑source counts and total areas inside the AOI; deduplication on tile edges
 - **Documentation and testing**: Usage notes; tested different AOI sizes to validate fetching, clipping, stats, and exports
+
+
+### ScreenShots 
+
+Export Details : 
+<img width="1216" height="645" alt="image" src="https://github.com/user-attachments/assets/b252fe17-e790-4e91-a482-0b3e1b1cd4b4" />
+
+Create Export with drawing in Map as well as Upload : 
+
+<img width="1212" height="777" alt="image" src="https://github.com/user-attachments/assets/d5a194ad-461a-492a-85b0-cb01a274fdf0" />
+
