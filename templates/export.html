@@ -128,7 +128,6 @@
           rerunPolling = setInterval(async () => {
             await fetchRuns();
             renderRuns();
-            // If no run is queued or processing, re-enable the button
             const running = runs.some(
               (r) => r.status === "queued" || r.status === "processing"
             );
