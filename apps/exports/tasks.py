@@ -50,11 +50,12 @@ def process_export(export_run_id: str) -> Dict[str, Any]:
                 source=source,
                 source_config=export.source_config,
             )
+            # logger.info(result)
 
             if result.get("error"):
                 source_results[source] = result
                 continue
-
+            logger.info(result.get("building_count", 0))
             building_count = result.get("building_count", 0)
             total_building_count += building_count
 
@@ -78,6 +79,7 @@ def process_export(export_run_id: str) -> Dict[str, Any]:
             logger.info("Processed %s buildings from %s", building_count, source)
 
         if total_building_count == 0:
+            logger.info("No buildings found in any source, completing export run")
             export_run.results = {
                 "status": "completed",
                 "building_count": 0,
@@ -125,6 +127,7 @@ def process_export(export_run_id: str) -> Dict[str, Any]:
             "output_formats": output_formats,
             "files": all_files,
         }
+        logger.info(final_results)
 
         export_run.results = final_results
         export_run.status = "completed"

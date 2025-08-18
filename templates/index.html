@@ -901,68 +901,62 @@
 
         renderRuns(runs) {
           document.getElementById("runs-list").innerHTML = `
-            <div class="flex justify-between items-center mb-3">
-              <h4 class="text-md font-semibold">Export Runs</h4>
+            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-2">
+              <h4 class="text-md font-semibold">Export Runs (${
+                runs.length
+              })</h4>
             </div>
             ${
               runs.length
                 ? `
-              <div class="overflow-x-auto">
-                <table class="w-full text-sm border-collapse border border-gray-200">
-                  <thead class="bg-gray-50">
-                    <tr>
-                      <th class="border border-gray-200 px-3 py-2 text-left">Run ID</th>
-                      <th class="border border-gray-200 px-3 py-2 text-left">Status</th>
-                      <th class="border border-gray-200 px-3 py-2 text-left">Created</th>
-                      <th class="border border-gray-200 px-3 py-2 text-left">Results</th>
-                      <th class="border border-gray-200 px-3 py-2 text-left">Download</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${runs
-                      .map(
-                        (run) => `
-                      <tr class="hover:bg-gray-50">
-                        <td class="border border-gray-200 px-3 py-2 font-mono text-xs">${run.id.substring(
+              <div class="space-y-3 max-h-96 overflow-y-auto">
+                ${runs
+                  .map(
+                    (run) => `
+                  <div class="border rounded p-3 bg-white hover:shadow-sm transition-shadow">
+                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 gap-2">
+                      <div class="flex flex-wrap items-center gap-2">
+                        <span class="text-xs px-2 py-1 rounded ${
+                          run.status === "completed"
+                            ? "bg-green-100 text-green-800"
+                            : run.status === "processing"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : run.status === "queued"
+                            ? "bg-blue-100 text-blue-800"
+                            : "bg-red-100 text-red-800"
+                        }">
+                          ${run.status}
+                        </span>
+                        <span class="text-xs text-gray-500 font-mono">${run.id.substring(
                           0,
                           8
-                        )}...</td>
-                        <td class="border border-gray-200 px-3 py-2">
-                          <span class="text-xs px-2 py-1 rounded ${
-                            run.status === "completed"
-                              ? "bg-green-100 text-green-800"
-                              : run.status === "processing"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : run.status === "queued"
-                              ? "bg-blue-100 text-blue-800"
-                              : "bg-red-100 text-red-800"
-                          }">
-                            ${run.status}
-                          </span>
-                        </td>
-                        <td class="border border-gray-200 px-3 py-2">
-                          ${
-                            run.created_at
-                              ? new Date(run.created_at).toLocaleString()
-                              : "N/A"
-                          }
-                        </td>
-                        <td class="border border-gray-200 px-3 py-2">
-                          ${this.formatRunResults(run.results || {})}
-                        </td>
-                        <td class="border border-gray-200 px-3 py-2">
-                          ${
-                            run.status === "completed" && run.output_file
-                              ? `<a href="/api/runs/${run.id}/download/" class="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">Download ZIP</a>`
-                              : '<span class="text-gray-400 text-xs">Not available</span>'
-                          }
-                        </td>
-                      </tr>
-                    `
-                      )
-                      .join("")}
-                  </tbody>
-                </table>
+                        )}</span>
+                        <span class="text-xs text-gray-500">${
+                          run.duration || ""
+                        }</span>
+                      </div>
+                      ${
+                        run.status === "completed" && run.download_url
+                          ? `<button onclick="app.downloadRun('${
+                              run.id
+                            }')" class="text-xs px-2 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700 whitespace-nowrap">
+                              Download ${
+                                run.file_size
+                                  ? `(${(run.file_size / 1024 / 1024).toFixed(
+                                      1
+                                    )}MB)`
+                                  : ""
+                              }
+                             </button>`
+                          : ""
+                      }
+                    </div>
+                    
+                    ${this.renderSourceComparison(run.results)}
+                  </div>
+                `
+                  )
+                  .join("")}
               </div>
             `
                 : '<div class="text-center py-8 text-gray-500">No runs found</div>'
@@ -970,17 +964,64 @@
           `;
         }
 
-        formatRunResults(results) {
-          if (!results || Object.keys(results).length === 0) {
-            return '<span class="text-gray-400 text-xs">No results</span>';
-          }
+        renderSourceComparison(results) {
+          if (!results || !results.sources) return "";
 
-          return Object.entries(results)
-            .map(([source, data]) => {
-              const count = data.building_count || 0;
-              return `<div class="text-xs"><span class="font-medium">${source}:</span> ${count} buildings</div>`;
-            })
-            .join("");
+          const sources = Object.entries(results.sources);
+          const maxBuildings = Math.max(
+            ...sources.map(([_, data]) => data.building_count || 0)
+          );
+
+          return `
+            <div class="space-y-2">
+              <div class="text-xs font-medium text-gray-600 mb-2">Source Comparison</div>
+              ${sources
+                .map(([source, data]) => {
+                  const buildingCount = data.building_count || 0;
+                  const areaKm2 = data.total_area_m2
+                    ? (data.total_area_m2 / 1000000).toFixed(1)
+                    : 0;
+                  const percentage =
+                    maxBuildings > 0 ? (buildingCount / maxBuildings) * 100 : 0;
+
+                  return `
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-2">
+                      <div class="flex items-center space-x-2 min-w-0 sm:w-20">
+                        <span class="font-medium capitalize truncate">${source}</span>
+                      </div>
+                      <div class="flex-1 sm:mx-3">
+                        <div class="bg-gray-200 rounded-full h-2">
+                          <div class="h-2 rounded-full ${this.getSourceColor(
+                            source
+                          )}" style="width: ${percentage}%"></div>
+                        </div>
+                      </div>
+                      <div class="flex justify-between sm:justify-end sm:space-x-3 text-right">
+                        <span class="font-mono text-emerald-700">${buildingCount.toLocaleString()}</span>
+                        <span class="text-emerald-600">${areaKm2}km²</span>
+                      </div>
+                    </div>
+                  `;
+                })
+                .join("")}
+              <div class="flex justify-between text-xs pt-1 border-t border-gray-100">
+                <span class="font-medium">Total</span>
+                <span class="font-mono text-emerald-800">${(
+                  results.building_count || 0
+                ).toLocaleString()} buildings</span>
+              </div>
+            </div>
+          `;
+        }
+
+        getSourceColor(source) {
+          const colors = {
+            osm: "bg-emerald-500",
+            google: "bg-emerald-600",
+            microsoft: "bg-emerald-400",
+            overture: "bg-emerald-700",
+          };
+          return colors[source] || "bg-emerald-500";
         }
 
         async rerunExport(exportId) {
@@ -993,6 +1034,41 @@
           } catch (error) {
             console.error("Failed to rerun export:", error);
             this.showErrorToast(error.message);
+          }
+        }
+
+        async downloadRun(runId) {
+          try {
+            const token = localStorage.getItem("access_token");
+            if (!token) {
+              this.showErrorToast("Please log in to download");
+              return;
+            }
+
+            const response = await fetch(`/api/runs/${runId}/download/`, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            });
+
+            if (!response.ok) {
+              throw new Error("Download failed");
+            }
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `export-${runId}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+
+            this.showSuccessToast("Download started!");
+          } catch (error) {
+            console.error("Failed to download:", error);
+            this.showErrorToast("Download failed");
           }
         }
 
