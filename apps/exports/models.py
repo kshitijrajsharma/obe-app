@@ -16,10 +16,11 @@ SOURCE_CHOICES = [
 ]
 
 OUTPUT_FORMAT_CHOICES = [
+    ("tiles", "Vector Tiles (PMTiles)"),
     ("geoparquet", "GeoParquet"),
-    ("geojson", "GeoJSON"),
     ("shapefile", "Shapefile"),
     ("geopackage", "GeoPackage"),
+    ("geojson", "GeoJSON"),
 ]
 
 EXPORT_STATUS_CHOICES = [
@@ -133,6 +134,7 @@ class ExportRun(models.Model):
     results = models.JSONField(default=dict, blank=True)
 
     output_file = models.FileField(upload_to="exports/%Y/%m/%d/", blank=True, null=True)
+    tiles_file = models.FileField(upload_to="tiles/%Y/%m/%d/", blank=True, null=True)
 
     started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)

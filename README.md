@@ -23,6 +23,7 @@ Django REST API for extracting building footprints from multiple data sources.
 - Redis
 - GDAL/GEOS libraries
 - uv package manager
+- tippecanoe (optional, for vector tiles)
 
 ## Setup
 
@@ -32,6 +33,30 @@ cd obe-app
 ./setup.sh
 uv run python manage.py migrate
 uv run python manage.py createsuperuser
+```
+
+## Optional Configuration
+
+Create `.env` file for enhanced features:
+
+```bash
+# WorldPop API (for population estimates)
+WORLDPOP_API_KEY=your_worldpop_api_key_here
+```
+
+### Install Tippecanoe for Vector Tiles
+
+**macOS:**
+```bash
+brew install tippecanoe
+```
+
+**Ubuntu/Debian:**
+```bash
+git clone https://github.com/felt/tippecanoe.git
+cd tippecanoe
+make -j$(nproc)
+sudo make install
 ```
 
 ## Run

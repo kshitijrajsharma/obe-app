@@ -193,6 +193,126 @@ class DownloadExportRunView(APIView):
             raise Http404("Export run not found")
 
 
+@extend_schema(tags=["Public"])
+class PublicDownloadExportRunView(APIView):
+    permission_classes = []
+
+    def get(self, request, pk):
+        try:
+            export_run = ExportRun.objects.get(pk=pk, export__is_public=True)
+
+            if export_run.status != "completed" or not export_run.output_file:
+                return Response(
+                    {"error": "Export run is not completed or has no output file"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            response = FileResponse(
+                export_run.output_file.open("rb"),
+                as_attachment=True,
+                filename=export_run.output_file.name.split("/")[-1],
+            )
+            return response
+
+        except ExportRun.DoesNotExist:
+            raise Http404("Export run not found")
+
+
+@extend_schema(tags=["Public"])
+class PublicExportDetailView(generics.RetrieveAPIView):
+    serializer_class = ExportSerializer
+    permission_classes = []
+    lookup_field = "pk"
+
+    def get_queryset(self):
+        return Export.objects.filter(is_public=True)
+
+
+@extend_schema(tags=["Public"])
+class PublicExportRunListView(generics.ListAPIView):
+    serializer_class = ExportRunSerializer
+    permission_classes = []
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_class = ExportRunFilter
+    ordering_fields = ["created_at", "completed_at"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        export_id = self.kwargs.get("export_id")
+        return ExportRun.objects.filter(export_id=export_id, export__is_public=True)
+
+
+@extend_schema(tags=["Stats"])
+class ExportRunStatsView(APIView):
+    permission_classes = []
+
+    def get(self, request, pk):
+        try:
+            export_run = ExportRun.objects.get(pk=pk)
+
+            if (
+                not export_run.export.is_public
+                and export_run.export.user != request.user
+            ):
+                if not request.user.is_authenticated:
+                    return Response({"error": "Authentication required"}, status=401)
+                return Response({"error": "Access denied"}, status=403)
+
+            stats = {
+                "run_id": str(export_run.id),
+                "export_name": export_run.export.name,
+                "status": export_run.status,
+                "building_count": export_run.building_count,
+                "file_size": export_run.file_size,
+                "duration": str(export_run.duration) if export_run.duration else None,
+                "sources": export_run.results.get("sources", {}),
+                "files": export_run.results.get("files", {}),
+                "population": export_run.results.get("population", {}),
+                "created_at": export_run.created_at.isoformat(),
+                "completed_at": export_run.completed_at.isoformat()
+                if export_run.completed_at
+                else None,
+                "area_of_interest": json.loads(
+                    export_run.export.area_of_interest.geojson
+                ),
+                "output_formats": export_run.export.output_format,
+            }
+
+            return Response(stats)
+
+        except ExportRun.DoesNotExist:
+            raise Http404("Export run not found")
+
+
+@extend_schema(tags=["Tiles"])
+class ExportRunTilesView(APIView):
+    permission_classes = []
+
+    def get(self, request, pk):
+        try:
+            export_run = ExportRun.objects.get(pk=pk)
+
+            if (
+                not export_run.export.is_public
+                and export_run.export.user != request.user
+            ):
+                if not request.user.is_authenticated:
+                    return Response({"error": "Authentication required"}, status=401)
+                return Response({"error": "Access denied"}, status=403)
+
+            if not export_run.tiles_file:
+                return Response({"error": "No tiles available"}, status=404)
+
+            response = FileResponse(
+                export_run.tiles_file.open("rb"),
+                content_type="application/vnd.mapbox-vector-tile",
+            )
+            return response
+
+        except ExportRun.DoesNotExist:
+            raise Http404("Export run not found")
+
+
 @extend_schema(
     tags=["Utilities"],
     request={"type": "object", "properties": {"geometry": {"type": "object"}}},

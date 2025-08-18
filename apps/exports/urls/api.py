@@ -36,6 +36,11 @@ urlpatterns = [
         name="download_run",
     ),
     path(
+        "runs/<uuid:pk>/tiles/",
+        api_views.ExportRunTilesView.as_view(),
+        name="run_tiles",
+    ),
+    path(
         "exports/rerun/<uuid:export_id>/",
         rerun_export,
         name="rerun-export",
@@ -45,6 +50,27 @@ urlpatterns = [
         "public/exports/",
         api_views.PublicExportListView.as_view(),
         name="public_exports",
+    ),
+    path(
+        "public/exports/<uuid:pk>/",
+        api_views.PublicExportDetailView.as_view(),
+        name="public_export_detail",
+    ),
+    path(
+        "public/exports/<uuid:export_id>/runs/",
+        api_views.PublicExportRunListView.as_view(),
+        name="public_run_list",
+    ),
+    path(
+        "public/runs/<uuid:pk>/download/",
+        api_views.PublicDownloadExportRunView.as_view(),
+        name="public_download_run",
+    ),
+    # Stats
+    path(
+        "runs/<uuid:pk>/stats/",
+        api_views.ExportRunStatsView.as_view(),
+        name="run_stats",
     ),
     # Utilities
     path("validate-aoi/", api_views.ValidateAOIView.as_view(), name="validate_aoi"),

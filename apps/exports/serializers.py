@@ -9,7 +9,7 @@ from .models import Export, ExportRun
 
 
 class ExportSerializer(GeoFeatureModelSerializer):
-    user = serializers.StringRelatedField(read_only=True)
+    user = serializers.SerializerMethodField()
     latest_run = serializers.SerializerMethodField()
     is_processing = serializers.SerializerMethodField()
     share_url = serializers.SerializerMethodField()
@@ -72,6 +72,10 @@ class ExportSerializer(GeoFeatureModelSerializer):
     def get_is_processing(self, obj) -> bool:
         return obj.is_processing
 
+    @extend_schema_field(serializers.CharField())
+    def get_user(self, obj) -> str:
+        return obj.user.username
+
 
 class ExportRunSerializer(serializers.ModelSerializer):
     export = serializers.StringRelatedField(read_only=True)
@@ -79,6 +83,7 @@ class ExportRunSerializer(serializers.ModelSerializer):
     building_count = serializers.SerializerMethodField()
     file_size = serializers.SerializerMethodField()
     download_url = serializers.SerializerMethodField()
+    tiles_url = serializers.SerializerMethodField()
 
     class Meta:
         model = ExportRun
@@ -97,6 +102,7 @@ class ExportRunSerializer(serializers.ModelSerializer):
             "building_count",
             "file_size",
             "download_url",
+            "tiles_url",
         ]
         read_only_fields = [
             "id",
@@ -127,6 +133,12 @@ class ExportRunSerializer(serializers.ModelSerializer):
     @extend_schema_field(serializers.IntegerField())
     def get_file_size(self, obj) -> int:
         return obj.file_size
+
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_tiles_url(self, obj) -> Optional[str]:
+        if obj.tiles_file and obj.status == "completed":
+            return f"/api/runs/{obj.id}/tiles/"
+        return None
 
 
 class CreateExportRunSerializer(serializers.ModelSerializer):

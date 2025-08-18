@@ -21,12 +21,14 @@ class BuildingStatsGenerator:
             return {
                 "building_count": 0,
                 "total_area_m2": 0,
+                "attributes": [],
                 "message": "No buildings found",
             }
 
         stats = {
             "building_count": len(gdf),
             "source": source,
+            "attributes": list(gdf.columns.drop("geometry", errors="ignore")),
         }
 
         if hasattr(gdf, "geometry") and not gdf.geometry.empty:
@@ -34,9 +36,13 @@ class BuildingStatsGenerator:
                 gdf_projected = gdf.to_crs("EPSG:3857")
                 total_area = gdf_projected.geometry.area.sum()
                 stats["total_area_m2"] = float(total_area)
+                stats["avg_area_m2"] = (
+                    float(total_area / len(gdf)) if len(gdf) > 0 else 0
+                )
             except Exception as e:
                 logger.warning("Could not calculate area: %s", str(e))
                 stats["total_area_m2"] = 0
+                stats["avg_area_m2"] = 0
 
         return stats
 

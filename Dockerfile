@@ -11,6 +11,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     python3-dev \
     libpq-dev \
+    git \
+    cmake \
+    zlib1g-dev \
+    libsqlite3-dev \
+    && git clone https://github.com/felt/tippecanoe.git /tmp/tippecanoe \
+    && cd /tmp/tippecanoe \
+    && make -j$(nproc) \
+    && make install \
+    && cd / \
+    && rm -rf /tmp/tippecanoe \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -33,10 +43,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gdal-bin \
     libgdal-dev \
     libpq5 \
+    sqlite3 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app /app
+COPY --from=builder /usr/local/bin/tippecanoe /usr/local/bin/tippecanoe
 
 ENV PATH="/app/.venv/bin:$PATH"
 

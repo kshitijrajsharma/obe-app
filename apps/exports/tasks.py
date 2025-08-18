@@ -2,7 +2,6 @@ import logging
 import os
 import tempfile
 import zipfile
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
 
@@ -10,10 +9,17 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
+from django.utils import timezone
 from huey.contrib.djhuey import task
 
 from .models import ExportRun
+from .population import PopulationEstimator
 from .processors import BuildingProcessor
+from .tiles import (
+    generate_pmtiles_from_gdf,
+    generate_pmtiles_from_geojson,
+    is_tippecanoe_available,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +29,7 @@ def process_export(export_run_id: str) -> Dict[str, Any]:
     try:
         export_run = ExportRun.objects.get(id=export_run_id)
         export_run.status = "processing"
-        export_run.started_at = datetime.now()
+        export_run.started_at = timezone.now()
         export_run.save()
 
         logger.info("Starting export processing for run %s", export_run_id)
@@ -64,7 +70,12 @@ def process_export(export_run_id: str) -> Dict[str, Any]:
 
             if gdf is not None and not gdf.empty:
                 source_files = {}
+                geojson_file_path = None
+
                 for output_format in output_formats:
+                    if output_format == "tiles":
+                        continue
+
                     logger.info("Generating %s file for %s", output_format, source)
 
                     file_info = processor.save_gdf_to_format(
@@ -74,7 +85,15 @@ def process_export(export_run_id: str) -> Dict[str, Any]:
                     if not file_info.get("error"):
                         source_files[output_format] = file_info
 
+                        if output_format == "geojson":
+                            geojson_file_path = file_info.get("file_path")
+
                 all_files[source] = source_files
+
+                if geojson_file_path:
+                    source_results[source]["geojson_path"] = geojson_file_path
+
+                source_results[source]["has_data"] = True
 
             logger.info("Processed %s buildings from %s", building_count, source)
 
@@ -87,7 +106,7 @@ def process_export(export_run_id: str) -> Dict[str, Any]:
                 "sources": source_results,
             }
             export_run.status = "completed"
-            export_run.completed_at = datetime.now()
+            export_run.completed_at = timezone.now()
             export_run.save()
 
             logger.info(
@@ -127,11 +146,54 @@ def process_export(export_run_id: str) -> Dict[str, Any]:
             "output_formats": output_formats,
             "files": all_files,
         }
+
+        population_data = PopulationEstimator.estimate_population(
+            export.area_of_interest
+        )
+        if population_data:
+            final_results["population"] = population_data
+
+        if is_tippecanoe_available() and total_building_count > 0:
+            try:
+                existing_geojson_paths = []
+                gdfs_for_merge = []
+
+                for source in sources:
+                    result = source_results.get(source, {})
+                    if result.get("geojson_path"):
+                        existing_geojson_paths.append(result["geojson_path"])
+                    elif result.get("has_data"):
+                        gdf_result = processor.extract_buildings(
+                            area_of_interest=export.area_of_interest,
+                            source=source,
+                            source_config=export.source_config,
+                        )
+                        if (
+                            not gdf_result.get("error")
+                            and gdf_result.get("gdf") is not None
+                        ):
+                            gdfs_for_merge.append(gdf_result["gdf"])
+
+                if existing_geojson_paths and len(existing_geojson_paths) == 1:
+                    generate_pmtiles_from_geojson(existing_geojson_paths[0], export_run)
+                elif gdfs_for_merge:
+                    combined_gdf = gdfs_for_merge[0]
+                    for gdf in gdfs_for_merge[1:]:
+                        combined_gdf = combined_gdf.append(gdf, ignore_index=True)
+                    generate_pmtiles_from_gdf(combined_gdf, export_run)
+
+                final_results["tiles_generated"] = True
+                final_results["tiles_available"] = True
+
+            except Exception as e:
+                logger.error(f"Tile generation failed: {e}")
+                final_results["tiles_error"] = str(e)
+
         logger.info(final_results)
 
         export_run.results = final_results
         export_run.status = "completed"
-        export_run.completed_at = datetime.now()
+        export_run.completed_at = timezone.now()
         export_run.save()
 
         logger.info("Export processing completed for run %s", export_run_id)
@@ -156,7 +218,7 @@ def process_export(export_run_id: str) -> Dict[str, Any]:
             export_run = ExportRun.objects.get(id=export_run_id)
             export_run.status = "failed"
             export_run.error_message = str(e)
-            export_run.completed_at = datetime.now()
+            export_run.completed_at = timezone.now()
             export_run.save()
         except ExportRun.DoesNotExist:
             pass
@@ -165,7 +227,6 @@ def process_export(export_run_id: str) -> Dict[str, Any]:
 
 
 def _package_files(all_files: Dict, export_name: str, created_at) -> str:
-    """Package all files into a compressed zip archive"""
     temp_dir = Path(tempfile.mkdtemp())
     zip_path = temp_dir / f"{export_name}_{created_at.strftime('%Y%m%d_%H%M%S')}.zip"
 

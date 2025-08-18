@@ -221,6 +221,8 @@ EMAIL_BACKEND = env(
 )
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@localhost")
 
+WORLDPOP_API_KEY = env("WORLDPOP_API_KEY", default=None)
+
 HUEY = {
     "huey_class": "huey.RedisHuey",
     "immediate": False,

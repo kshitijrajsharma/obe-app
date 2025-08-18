@@ -10,6 +10,7 @@
       href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
     />
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+    <script src="https://unpkg.com/pmtiles@3.0.7/dist/pmtiles.js"></script>
     <script src="https://unpkg.com/@mapbox/mapbox-gl-draw@1.4.3/dist/mapbox-gl-draw.js"></script>
     <link
       rel="stylesheet"
@@ -219,6 +220,9 @@
                       <option value="shapefile">Shapefile</option>
                       <option value="geopackage">GeoPackage</option>
                     </select>
+                    <p class="text-xs text-gray-500 mt-1">
+                      Vector tiles generated automatically for web viewing
+                    </p>
                   </div>
                 </div>
                 <div id="source-configs" class="space-y-3"></div>
@@ -294,10 +298,14 @@
           this.isLogin = true;
           this.countries = [];
           this.selectedExport = null;
+          this.currentRunId = null;
           this.init();
         }
 
         async init() {
+          let protocol = new pmtiles.Protocol();
+          maplibregl.addProtocol("pmtiles", protocol.tile);
+
           await this.loadCountries();
           this.map = new maplibregl.Map({
             container: "map",
@@ -324,6 +332,7 @@
           });
 
           this.setupEvents();
+          this.handleUrlRouting();
           this.checkAuth();
           this.loadExports();
         }
@@ -863,7 +872,8 @@
                         </div>
                         <div class="grid grid-cols-2 gap-4 text-sm">
                             <div><span class="font-medium">Status:</span> ${
-                              p.status || "unknown"
+                              p.latest_run?.status ||
+                              (p.is_processing ? "processing" : "ready")
                             }</div>
                             <div><span class="font-medium">Public:</span> ${
                               p.is_public ? "Yes" : "No"
@@ -884,7 +894,9 @@
                                 : "unknown"
                             }</div>
                             <div><span class="font-medium">User:</span> ${
-                              p.user || "unknown"
+                              p.user?.includes("@")
+                                ? p.user.split("@")[0]
+                                : p.user || "unknown"
                             }</div>
                         </div>
                         <div class="flex justify-between items-center">
@@ -950,9 +962,19 @@
                              </button>`
                           : ""
                       }
+                      ${
+                        run.status === "completed" && run.tiles_url
+                          ? `<button onclick="app.downloadTiles('${run.id}')" class="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 whitespace-nowrap">
+                              Tiles
+                             </button>`
+                          : ""
+                      }
                     </div>
                     
-                    ${this.renderSourceComparison(run.results)}
+                    ${this.renderSourceComparison({
+                      ...run.results,
+                      run_id: run.id,
+                    })}
                   </div>
                 `
                   )
@@ -973,33 +995,100 @@
           );
 
           return `
-            <div class="space-y-2">
-              <div class="text-xs font-medium text-gray-600 mb-2">Source Comparison</div>
+            <div class="space-y-3">
+              <div class="flex justify-between items-center">
+                <div class="text-xs font-medium text-gray-600">Source Comparison</div>
+                <div class="flex space-x-1">
+                  <button onclick="app.downloadStats('${
+                    results.run_id || ""
+                  }')" class="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200">Stats JSON</button>
+                  ${
+                    results.tiles_available || results.tiles_generated
+                      ? `<button onclick="app.viewOnMap('${
+                          results.run_id || ""
+                        }')" class="text-xs px-2 py-1 bg-emerald-100 text-emerald-700 rounded hover:bg-emerald-200">View Tiles</button>`
+                      : ""
+                  }
+                </div>
+              </div>
+              
+              ${
+                results.population
+                  ? `
+                <div class="bg-blue-50 border border-blue-200 rounded p-2 text-xs">
+                  <div class="font-medium text-blue-800 flex items-center">
+                    Population Data 
+                    <span class="ml-1 text-blue-600 cursor-help" title="Population estimate for the selected area">ⓘ</span>
+                  </div>
+                  <div class="text-blue-700">${
+                    results.population.population_estimate?.toLocaleString() ||
+                    "N/A"
+                  } people</div>
+                  <div class="text-blue-600">${
+                    results.population.area_km2 || 0
+                  }km² • ${results.population.density_per_km2 || 0}/km² • ${
+                      results.population.source || "unknown"
+                    }</div>
+                  ${
+                    results.population.year
+                      ? `<div class="text-blue-500 text-xs">Data: ${results.population.year}</div>`
+                      : ""
+                  }
+                </div>
+              `
+                  : ""
+              }
+              
               ${sources
                 .map(([source, data]) => {
                   const buildingCount = data.building_count || 0;
                   const areaKm2 = data.total_area_m2
                     ? (data.total_area_m2 / 1000000).toFixed(1)
                     : 0;
+                  const avgArea = data.avg_area_m2
+                    ? Math.round(data.avg_area_m2)
+                    : buildingCount > 0
+                    ? Math.round(data.total_area_m2 / buildingCount)
+                    : 0;
                   const percentage =
                     maxBuildings > 0 ? (buildingCount / maxBuildings) * 100 : 0;
 
                   return `
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-2">
-                      <div class="flex items-center space-x-2 min-w-0 sm:w-20">
-                        <span class="font-medium capitalize truncate">${source}</span>
-                      </div>
-                      <div class="flex-1 sm:mx-3">
-                        <div class="bg-gray-200 rounded-full h-2">
-                          <div class="h-2 rounded-full ${this.getSourceColor(
+                    <div class="border border-gray-100 rounded p-2 space-y-2">
+                      <div class="flex items-center justify-between">
+                        <span class="font-medium capitalize text-sm flex items-center">
+                          ${source}
+                          <span class="ml-1 text-gray-400 cursor-help text-xs" title="${this.getSourceInfo(
                             source
-                          )}" style="width: ${percentage}%"></div>
+                          )}">ⓘ</span>
+                        </span>
+                        <div class="flex space-x-2 text-xs">
+                          <span class="text-emerald-700 font-mono">${buildingCount.toLocaleString()}</span>
+                          <span class="text-emerald-600">${areaKm2}km²</span>
+                          <span class="text-gray-500">${avgArea}m²/bldg</span>
                         </div>
                       </div>
-                      <div class="flex justify-between sm:justify-end sm:space-x-3 text-right">
-                        <span class="font-mono text-emerald-700">${buildingCount.toLocaleString()}</span>
-                        <span class="text-emerald-600">${areaKm2}km²</span>
+                      <div class="bg-gray-200 rounded-full h-1.5">
+                        <div class="h-1.5 rounded-full ${this.getSourceColor(
+                          source
+                        )}" style="width: ${percentage}%"></div>
                       </div>
+                      ${
+                        data.attributes && data.attributes.length > 0
+                          ? `
+                        <div class="text-xs text-gray-500">
+                          <span class="font-medium">Attrs:</span> 
+                          <span class="cursor-help" title="${data.attributes.join(
+                            ", "
+                          )}">${data.attributes.slice(0, 4).join(", ")}${
+                              data.attributes.length > 4
+                                ? ` +${data.attributes.length - 4} more`
+                                : ""
+                            }</span>
+                        </div>
+                      `
+                          : ""
+                      }
                     </div>
                   `;
                 })
@@ -1024,6 +1113,18 @@
           return colors[source] || "bg-emerald-500";
         }
 
+        getSourceInfo(source) {
+          const info = {
+            osm: "OpenStreetMap Buildings - Community-contributed building data",
+            google:
+              "Google Open Buildings - AI-detected buildings from satellite imagery",
+            microsoft:
+              "Microsoft Building Footprints - AI-generated building outlines",
+            overture: "Overture Buildings - Collaborative building dataset",
+          };
+          return info[source] || "Building footprint data source";
+        }
+
         async rerunExport(exportId) {
           try {
             await this.apiCall(`/exports/rerun/${exportId}/`, {
@@ -1040,35 +1141,245 @@
         async downloadRun(runId) {
           try {
             const token = localStorage.getItem("access_token");
+            let downloadUrl = `/api/runs/${runId}/download/`;
+            let headers = {};
+
+            // Check if this is a public export run
             if (!token) {
-              this.showErrorToast("Please log in to download");
-              return;
+              downloadUrl = `/api/public/runs/${runId}/download/`;
+            } else {
+              headers["Authorization"] = `Bearer ${token}`;
             }
 
-            const response = await fetch(`/api/runs/${runId}/download/`, {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            });
+            const response = await fetch(downloadUrl, { headers });
+
+            // If private download fails and we have no token, try public
+            if (!response.ok && token) {
+              const publicResponse = await fetch(
+                `/api/public/runs/${runId}/download/`
+              );
+              if (publicResponse.ok) {
+                const blob = await publicResponse.blob();
+                this.triggerDownload(blob, runId);
+                return;
+              }
+            }
 
             if (!response.ok) {
               throw new Error("Download failed");
             }
 
             const blob = await response.blob();
+            this.triggerDownload(blob, runId);
+          } catch (error) {
+            console.error("Failed to download:", error);
+            this.showErrorToast("Download failed");
+          }
+        }
+
+        triggerDownload(blob, runId) {
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `export-${runId}.zip`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+          this.showSuccessToast("Download started!");
+        }
+
+        async downloadStats(runId) {
+          try {
+            const data = await this.apiCall(`/runs/${runId}/stats/`);
+
+            const blob = new Blob([JSON.stringify(data, null, 2)], {
+              type: "application/json",
+            });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
-            a.download = `export-${runId}.zip`;
+            a.download = `stats-${runId}.json`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             window.URL.revokeObjectURL(url);
-
-            this.showSuccessToast("Download started!");
+            this.showSuccessToast("Stats downloaded!");
           } catch (error) {
-            console.error("Failed to download:", error);
-            this.showErrorToast("Download failed");
+            console.error("Failed to download stats:", error);
+            this.showErrorToast("Stats download failed");
+          }
+        }
+
+        async viewOnMap(runId) {
+          try {
+            const headers = {};
+            const token = localStorage.getItem("token");
+            if (token) {
+              headers["Authorization"] = `Token ${token}`;
+            }
+
+            let tilesUrl = `/api/runs/${runId}/tiles/`;
+            const response = await fetch(tilesUrl, { headers });
+
+            if (!response.ok) {
+              if (response.status === 401 && !token) {
+                tilesUrl = `/api/public/runs/${runId}/tiles/`;
+                const publicResponse = await fetch(tilesUrl);
+                if (!publicResponse.ok) {
+                  throw new Error("Tiles not available");
+                }
+              } else {
+                throw new Error("Tiles not available");
+              }
+            }
+
+            this.loadTilesOnMap(runId, tilesUrl);
+            this.showSuccessToast("Tiles loaded on map!");
+          } catch (error) {
+            console.error("Failed to load tiles:", error);
+            this.showErrorToast("Tiles not available");
+          }
+        }
+
+        loadTilesOnMap(runId, tilesUrl) {
+          if (!this.map) return;
+
+          const sourceId = `tiles-${runId}`;
+          const layerId = `buildings-${runId}`;
+
+          if (this.map.getSource(sourceId)) {
+            this.map.removeLayer(layerId);
+            this.map.removeSource(sourceId);
+          }
+
+          this.map.addSource(sourceId, {
+            type: "vector",
+            url: `pmtiles://${window.location.origin}${tilesUrl}`,
+          });
+
+          this.map.addLayer({
+            id: layerId,
+            type: "fill",
+            source: sourceId,
+            "source-layer": "buildings",
+            paint: {
+              "fill-color": "#3b82f6",
+              "fill-opacity": 0.6,
+              "fill-outline-color": "#1d4ed8",
+            },
+          });
+
+          this.map.on("click", layerId, (e) => {
+            if (e.features.length > 0) {
+              const feature = e.features[0];
+              const popup = new maplibregl.Popup()
+                .setLngLat(e.lngLat)
+                .setHTML(
+                  `
+                  <div class="p-2">
+                    <h3 class="font-medium">Building</h3>
+                    ${Object.entries(feature.properties)
+                      .map(
+                        ([k, v]) =>
+                          `<div class="text-xs"><strong>${k}:</strong> ${v}</div>`
+                      )
+                      .join("")}
+                  </div>
+                `
+                )
+                .addTo(this.map);
+            }
+          });
+
+          this.map.on("mouseenter", layerId, () => {
+            this.map.getCanvas().style.cursor = "pointer";
+          });
+
+          this.map.on("mouseleave", layerId, () => {
+            this.map.getCanvas().style.cursor = "";
+          });
+        }
+
+        async downloadTiles(runId) {
+          try {
+            const headers = {};
+            const token = localStorage.getItem("token");
+            if (token) {
+              headers["Authorization"] = `Token ${token}`;
+            }
+
+            let tilesUrl = `/api/runs/${runId}/tiles/`;
+            const response = await fetch(tilesUrl, { headers });
+
+            if (!response.ok) {
+              if (response.status === 401 && !token) {
+                tilesUrl = `/api/public/runs/${runId}/tiles/`;
+                const publicResponse = await fetch(tilesUrl);
+                if (publicResponse.ok) {
+                  const blob = await publicResponse.blob();
+                  this.triggerTilesDownload(blob, runId);
+                  return;
+                }
+              }
+              throw new Error("Tiles download failed");
+            }
+
+            const blob = await response.blob();
+            this.triggerTilesDownload(blob, runId);
+          } catch (error) {
+            console.error("Failed to download tiles:", error);
+            this.showErrorToast("Tiles download failed");
+          }
+        }
+
+        triggerTilesDownload(blob, runId) {
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `tiles-${runId}.pmtiles`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+          this.showSuccessToast("Tiles download started!");
+        }
+
+        handleUrlRouting() {
+          const path = window.location.pathname;
+          const match = path.match(/^\/public\/([^\/]+)\/?$/);
+
+          if (match) {
+            const exportId = match[1];
+            this.loadPublicExport(exportId);
+          }
+        }
+
+        async loadPublicExport(exportId) {
+          try {
+            const export_data = await fetch(`/api/public/exports/${exportId}/`);
+            const export_json = await export_data.json();
+
+            if (export_json) {
+              this.exports = [export_json];
+              this.selectedExport = export_json;
+              this.currentView = "detail";
+              this.render();
+              this.loadPublicExportRuns(exportId);
+            }
+          } catch (error) {
+            console.error("Failed to load public export:", error);
+            this.showErrorToast("Export not found or not public");
+          }
+        }
+
+        async loadPublicExportRuns(exportId) {
+          try {
+            const data = await fetch(`/api/public/exports/${exportId}/runs/`);
+            const runs = await data.json();
+            this.renderRuns(runs.results || []);
+          } catch (error) {
+            console.error("Failed to load public runs:", error);
           }
         }
 
@@ -1076,6 +1387,17 @@
           const toast = document.createElement("div");
           toast.className =
             "fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50";
+          toast.textContent = message;
+          document.body.appendChild(toast);
+          setTimeout(() => {
+            document.body.removeChild(toast);
+          }, 3000);
+        }
+
+        showInfoToast(message) {
+          const toast = document.createElement("div");
+          toast.className =
+            "fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded shadow-lg z-50";
           toast.textContent = message;
           document.body.appendChild(toast);
           setTimeout(() => {
