@@ -34,11 +34,16 @@ def generate_pmtiles_from_geojson(geojson_path, export_run):
     if result.returncode != 0:
         raise RuntimeError(f"Tippecanoe failed: {result.stderr}")
 
-    # Save the tiles file to the Django FileField
+    if not output_path.exists():
+        raise RuntimeError(
+            f"Tippecanoe succeeded but output file {output_path} was not created"
+        )
+
     with open(output_path, "rb") as f:
         file_content = ContentFile(f.read())
         filename = f"{export_run.id}.pmtiles"
         export_run.tiles_file.save(filename, file_content)
+        export_run.refresh_from_db()
 
     return output_path
 
@@ -81,11 +86,18 @@ def generate_pmtiles_from_gdf(gdf, export_run):
             if result.returncode != 0:
                 raise RuntimeError(f"Tippecanoe failed: {result.stderr}")
 
+            # Check if the output file was actually created
+            if not output_path.exists():
+                raise RuntimeError(
+                    f"Tippecanoe succeeded but output file {output_path} was not created"
+                )
+
             # Save the tiles file to the Django FileField
             with open(output_path, "rb") as f:
                 file_content = ContentFile(f.read())
                 filename = f"{export_run.id}.pmtiles"
                 export_run.tiles_file.save(filename, file_content)
+                export_run.refresh_from_db()  # Refresh to make sure the save worked
 
             return output_path
 

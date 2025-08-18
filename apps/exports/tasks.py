@@ -114,31 +114,6 @@ def process_export(export_run_id: str) -> Dict[str, Any]:
             )
             return {"status": "completed", "building_count": 0}
 
-        output_file_path = None
-        if all_files:
-            output_file_path = _package_files(
-                all_files, export.name, export_run.created_at
-            )
-
-            if output_file_path:
-                with open(output_file_path, "rb") as f:
-                    file_content = ContentFile(f.read())
-                    filename = Path(output_file_path).name
-                    export_run.output_file.save(filename, file_content)
-
-                try:
-                    os.unlink(output_file_path)
-                except OSError:
-                    pass
-
-        for source_files in all_files.values():
-            for file_info in source_files.values():
-                if file_info.get("file_path"):
-                    try:
-                        os.unlink(file_info["file_path"])
-                    except OSError:
-                        pass
-
         final_results = {
             "status": "completed",
             "building_count": total_building_count,
@@ -152,6 +127,27 @@ def process_export(export_run_id: str) -> Dict[str, Any]:
         )
         if population_data:
             final_results["population"] = population_data
+
+            if total_building_count > 0:
+                pop_total = population_data.get("population_estimate", 0)
+                final_results["population_stats"] = {
+                    "population_per_building": round(
+                        pop_total / total_building_count, 2
+                    )
+                    if pop_total > 0
+                    else 0,
+                    "buildings_per_1000_people": round(
+                        (total_building_count / pop_total) * 1000, 2
+                    )
+                    if pop_total > 0
+                    else 0,
+                    "density_category": _classify_building_density(
+                        pop_total, total_building_count
+                    ),
+                    "source_completeness": _analyze_source_completeness(
+                        source_results, pop_total, total_building_count
+                    ),
+                }
 
         if is_tippecanoe_available() and total_building_count > 0:
             try:
@@ -186,8 +182,33 @@ def process_export(export_run_id: str) -> Dict[str, Any]:
                 final_results["tiles_available"] = True
 
             except Exception as e:
-                logger.error(f"Tile generation failed: {e}")
+                logger.error("Tile generation failed: %s", e)
                 final_results["tiles_error"] = str(e)
+
+        output_file_path = None
+        if all_files:
+            output_file_path = _package_files(
+                all_files, export.name, export_run.created_at, export_run
+            )
+
+            if output_file_path:
+                with open(output_file_path, "rb") as f:
+                    file_content = ContentFile(f.read())
+                    filename = Path(output_file_path).name
+                    export_run.output_file.save(filename, file_content)
+
+                try:
+                    os.unlink(output_file_path)
+                except OSError:
+                    pass
+
+        for source_files in all_files.values():
+            for file_info in source_files.values():
+                if file_info.get("file_path"):
+                    try:
+                        os.unlink(file_info["file_path"])
+                    except OSError:
+                        pass
 
         logger.info(final_results)
 
@@ -226,7 +247,9 @@ def process_export(export_run_id: str) -> Dict[str, Any]:
         return {"status": "failed", "error": str(e)}
 
 
-def _package_files(all_files: Dict, export_name: str, created_at) -> str:
+def _package_files(
+    all_files: Dict, export_name: str, created_at, export_run=None
+) -> str:
     temp_dir = Path(tempfile.mkdtemp())
     zip_path = temp_dir / f"{export_name}_{created_at.strftime('%Y%m%d_%H%M%S')}.zip"
 
@@ -236,6 +259,20 @@ def _package_files(all_files: Dict, export_name: str, created_at) -> str:
                 file_path = Path(file_info["file_path"])
                 archive_name = f"{source}_{format_name}{file_path.suffix}"
                 zipf.write(file_path, archive_name)
+
+        if export_run and export_run.tiles_file:
+            try:
+                tiles_file_path = export_run.tiles_file.path
+                if Path(tiles_file_path).exists():
+                    archive_name = "vector_tiles.pmtiles"
+                    zipf.write(tiles_file_path, archive_name)
+                    logger.info("Added PMTiles file to zip: %s", archive_name)
+                else:
+                    logger.warning(
+                        "PMTiles file path does not exist: %s", tiles_file_path
+                    )
+            except (AttributeError, ValueError, OSError) as e:
+                logger.warning("Could not add PMTiles to zip: %s", e)
 
     return str(zip_path)
 
@@ -318,3 +355,55 @@ def cleanup_old_exports():
     )
 
     return {"deleted_runs": deleted_runs, "deleted_files": deleted_files}
+
+
+def _classify_building_density(population, building_count):
+    if population == 0 or building_count == 0:
+        return "unknown"
+
+    people_per_building = population / building_count
+
+    if people_per_building < 2:
+        return "low_density"
+    elif people_per_building < 5:
+        return "medium_density"
+    elif people_per_building < 10:
+        return "high_density"
+    else:
+        return "very_high_density"
+
+
+def _analyze_source_completeness(source_results, population, total_building_count):
+    completeness = {}
+
+    for source, result in source_results.items():
+        building_count = result.get("building_count", 0)
+        if building_count > 0 and population > 0:
+            buildings_per_capita = building_count / population
+            relative_completeness = (
+                (building_count / total_building_count) * 100
+                if total_building_count > 0
+                else 0
+            )
+
+            completeness[source] = {
+                "building_count": building_count,
+                "buildings_per_capita": round(buildings_per_capita * 1000, 3),
+                "relative_completeness_percent": round(relative_completeness, 1),
+                "estimated_coverage": _estimate_coverage_level(buildings_per_capita),
+            }
+
+    return completeness
+
+
+def _estimate_coverage_level(buildings_per_capita):
+    if buildings_per_capita < 0.1:
+        return "very_low"
+    elif buildings_per_capita < 0.2:
+        return "low"
+    elif buildings_per_capita < 0.4:
+        return "moderate"
+    elif buildings_per_capita < 0.6:
+        return "high"
+    else:
+        return "excellent"
