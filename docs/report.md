@@ -1,4 +1,4 @@
-# Open Building Extractor — Report
+# Open Building Extractor : Report
 
 This report describes my application. It explains what the app does in my code, what problem I was trying to solve and what I did.
 
@@ -154,6 +154,7 @@ Create Export with drawing in Map as well as Upload :
 <img width="1212" height="777" alt="image" src="https://github.com/user-attachments/assets/d5a194ad-461a-492a-85b0-cb01a274fdf0" />
 
 Results : 
-<img width="1217" height="677" alt="image" src="https://github.com/user-attachments/assets/707fbdd3-7b21-4a2b-8085-7b29e477444a" />
+<img width="1211" height="758" alt="image" src="https://github.com/user-attachments/assets/af2e3e9e-a00a-4b5f-a890-72e880731be8" />
+
 <img width="657" height="285" alt="image" src="https://github.com/user-attachments/assets/121d567b-049d-428e-9d94-dd33572ae4a1" />
 
