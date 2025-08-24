@@ -18,6 +18,7 @@ from .processors import BuildingProcessor
 from .tiles import (
     generate_pmtiles_from_gdf,
     generate_pmtiles_from_geojson,
+    generate_pmtiles_from_multiple_geojson,
     is_tippecanoe_available,
 )
 
@@ -172,6 +173,8 @@ def process_export(export_run_id: str) -> Dict[str, Any]:
 
                 if existing_geojson_paths and len(existing_geojson_paths) == 1:
                     generate_pmtiles_from_geojson(existing_geojson_paths[0], export_run)
+                elif existing_geojson_paths and len(existing_geojson_paths) > 1:
+                    generate_pmtiles_from_multiple_geojson(existing_geojson_paths, export_run)
                 elif gdfs_for_merge:
                     combined_gdf = gdfs_for_merge[0]
                     for gdf in gdfs_for_merge[1:]:

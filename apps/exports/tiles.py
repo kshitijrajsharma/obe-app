@@ -8,6 +8,48 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 
 
+def generate_pmtiles_from_multiple_geojson(geojson_paths, export_run):
+    """Generate PMTiles from multiple GeoJSON files by merging them with tippecanoe."""
+    tiles_dir = Path(settings.MEDIA_ROOT) / "tiles"
+    tiles_dir.mkdir(exist_ok=True)
+
+    output_path = tiles_dir / f"{export_run.id}.pmtiles"
+
+    cmd = [
+        "tippecanoe",
+        "--output",
+        str(output_path),
+        "--layer",
+        "buildings",
+        "--minimum-zoom",
+        "5",
+        "--maximum-zoom",
+        "18",
+        "--drop-densest-as-needed",
+        "--extend-zooms-if-still-dropping",
+        "--force",
+    ]
+    
+    cmd.extend(geojson_paths)
+
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        raise RuntimeError(f"Tippecanoe failed: {result.stderr}")
+
+    if not output_path.exists():
+        raise RuntimeError(
+            f"Tippecanoe succeeded but output file {output_path} was not created"
+        )
+
+    with open(output_path, "rb") as f:
+        file_content = ContentFile(f.read())
+        filename = f"{export_run.id}.pmtiles"
+        export_run.tiles_file.save(filename, file_content)
+        export_run.refresh_from_db()
+
+    return output_path
+
+
 def generate_pmtiles_from_geojson(geojson_path, export_run):
     tiles_dir = Path(settings.MEDIA_ROOT) / "tiles"
     tiles_dir.mkdir(exist_ok=True)
