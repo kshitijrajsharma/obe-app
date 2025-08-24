@@ -1,5 +1,7 @@
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS builder
 
+ARG DEBUG=false
+
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     UV_PYTHON_DOWNLOADS=0
@@ -31,11 +33,19 @@ WORKDIR /app
 
 COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-install-project --no-dev
+    if [ "$DEBUG" = "true" ] ; then \
+    uv sync --frozen --no-install-project ; \
+    else \
+    uv sync --frozen --no-install-project --no-dev ; \
+    fi
 
-COPY . .
+COPY . ./code
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev
+    if [ "$DEBUG" = "true" ] ; then \
+    uv sync --frozen ; \
+    else \
+    uv sync --frozen --no-dev ; \
+    fi
 
 FROM python:3.12-slim-bookworm
 
@@ -47,14 +57,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /app /app
+COPY --from=builder /app/.venv /.venv
+COPY --from=builder /app/code /app
 COPY --from=builder /usr/local/bin/tippecanoe /usr/local/bin/tippecanoe
 
-ENV PATH="/app/.venv/bin:$PATH"
+ENV PATH="/.venv/bin:$PATH"
 
 WORKDIR /app
 
 RUN mkdir -p /app/media /app/logs /app/staticfiles \
+    && chmod 755 /app/logs \
     && python manage.py collectstatic --noinput --clear || true
 
 EXPOSE 8000

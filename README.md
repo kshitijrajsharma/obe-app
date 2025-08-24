@@ -120,8 +120,16 @@ cz bump
 
 ## Docker
 
+Production:
 ```bash
 docker-compose up --build
 docker-compose exec web python manage.py migrate
 docker-compose exec web python manage.py createsuperuser
 ```
+
+Development with live code reloading:
+```bash
+DEBUG=true docker-compose up --build
+```
+
+This automatically includes dev dependencies (watchdog, commitizen, debug toolbar) and mounts your code for live reloading.

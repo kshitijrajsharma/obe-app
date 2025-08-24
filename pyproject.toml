@@ -28,6 +28,7 @@ dev = [
     "commitizen>=4.8.3",
     "django-debug-toolbar>=6.0.0",
     "django-extensions>=4.1",
+    "watchdog>=4.0.0",
 ]
 
 [tool.commitizen]
