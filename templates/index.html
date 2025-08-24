@@ -1293,7 +1293,7 @@
 
           if (this.map.getSource(sourceId)) {
             const layers = this.map.getStyle().layers;
-            layers.forEach(layer => {
+            layers.forEach((layer) => {
               if (layer.source === sourceId) this.map.removeLayer(layer.id);
             });
             this.map.removeSource(sourceId);
@@ -1304,26 +1304,156 @@
             url: `pmtiles://${window.location.origin}${tilesUrl}`,
           });
 
-          const sourceColors = {
-            osm: "#e74c3c", google: "#3498db", overture: "#9b59b6", 
-            microsoft: "#2ecc71", default: "#95a5a6"
-          };
-          const possibleSources = ['osm', 'google', 'overture', 'microsoft', 'buildings'];
+          this.loadPMTilesLayers(sourceId, runId, tilesUrl);
+        }
+
+        async loadPMTilesLayers(sourceId, runId, tilesUrl) {
+          try {
+            const pmtilesUrl = `${window.location.origin}${tilesUrl}`;
+            const pmtilesInstance = new pmtiles.PMTiles(pmtilesUrl);
+            const metadata = await pmtilesInstance.getMetadata();
+
+            const colors = [
+              "#e74c3c",
+              "#3498db",
+              "#9b59b6",
+              "#2ecc71",
+              "#f39c12",
+              "#e67e22",
+              "#1abc9c",
+              "#34495e",
+            ];
+            const addedLayers = [];
+
+            if (metadata.vector_layers) {
+              for (const vectorLayer of metadata.vector_layers) {
+                const layerName = vectorLayer.id;
+                const layerId = `${layerName}-${runId}`;
+                const color = colors[Math.floor(Math.random() * colors.length)];
+
+                try {
+                  this.map.addLayer({
+                    id: layerId,
+                    type: "fill",
+                    source: sourceId,
+                    "source-layer": layerName,
+                    paint: { "fill-color": color, "fill-opacity": 0.15 },
+                  });
+                  this.map.addLayer({
+                    id: `${layerId}-outline`,
+                    type: "line",
+                    source: sourceId,
+                    "source-layer": layerName,
+                    paint: {
+                      "line-color": color,
+                      "line-width": 1,
+                      "line-opacity": 1,
+                    },
+                  });
+
+                  addedLayers.push({ name: layerName, layerId, color });
+
+                  this.map.on("click", layerId, (e) => {
+                    if (e.features.length > 0) {
+                      const feature = e.features[0];
+                      new maplibregl.Popup()
+                        .setLngLat(e.lngLat)
+                        .setHTML(
+                          `
+                        <div class="p-2">
+                          <h3 class="font-medium">Building (${layerName.toUpperCase()})</h3>
+                          ${Object.entries(feature.properties)
+                            .map(
+                              ([k, v]) =>
+                                `<div class="text-xs"><strong>${k}:</strong> ${v}</div>`
+                            )
+                            .join("")}
+                        </div>`
+                        )
+                        .addTo(this.map);
+                    }
+                  });
+
+                  this.map.on(
+                    "mouseenter",
+                    layerId,
+                    () => (this.map.getCanvas().style.cursor = "pointer")
+                  );
+                  this.map.on(
+                    "mouseleave",
+                    layerId,
+                    () => (this.map.getCanvas().style.cursor = "")
+                  );
+                } catch (error) {
+                  console.log(`Failed to add layer ${layerName}:`, error);
+                }
+              }
+            } else {
+              console.log(
+                "No vector_layers found in metadata, falling back to default layer"
+              );
+              const layerId = `buildings-${runId}`;
+              const color = sourceColors.buildings;
+
+              this.map.addLayer({
+                id: layerId,
+                type: "fill",
+                source: sourceId,
+                "source-layer": "buildings",
+                paint: { "fill-color": color, "fill-opacity": 0.6 },
+              });
+              addedLayers.push({ name: "buildings", layerId, color });
+            }
+
+            this.updateLayerSwitcher(addedLayers);
+          } catch (error) {
+            console.error("Failed to load PMTiles metadata:", error);
+            this.fallbackToStaticLayers(sourceId, runId);
+          }
+        }
+
+        fallbackToStaticLayers(sourceId, runId) {
+          const colors = [
+            "#e74c3c",
+            "#3498db",
+            "#9b59b6",
+            "#2ecc71",
+            "#f39c12",
+            "#e67e22",
+            "#1abc9c",
+            "#34495e",
+          ];
+          const possibleSources = [
+            "osm",
+            "google",
+            "overture",
+            "microsoft",
+            "buildings",
+          ];
           const addedLayers = [];
 
-          possibleSources.forEach(sourceName => {
-            const layerName = sourceName === 'buildings' ? 'buildings' : sourceName;
-            const layerId = `${layerName}-${runId}`;
-            const color = sourceColors[sourceName] || sourceColors.default;
+          possibleSources.forEach((sourceName) => {
+            const layerId = `${sourceName}-${runId}`;
+            const color = colors[Math.floor(Math.random() * colors.length)];
 
             try {
               this.map.addLayer({
-                id: layerId, type: "fill", source: sourceId, "source-layer": layerName,
-                paint: { "fill-color": color, "fill-opacity": 0.6 }
+                id: layerId,
+                type: "fill",
+                source: sourceId,
+                "source-layer": sourceName,
+                paint: { "fill-color": color, "fill-opacity": 0.15 },
               });
               this.map.addLayer({
-                id: `${layerId}-outline`, type: "line", source: sourceId, "source-layer": layerName,
-                paint: { "line-color": color, "line-width": 1, "line-opacity": 0.8 }
+                id: `${layerId}-outline`,
+                type: "line",
+                source: sourceId,
+                "source-layer": sourceName,
+                paint: {
+                  "line-color": color,
+                  "line-width": 2,
+                  "line-opacity": 1,
+                },
               });
 
               addedLayers.push({ name: sourceName, layerId, color });
@@ -1331,55 +1461,85 @@
               this.map.on("click", layerId, (e) => {
                 if (e.features.length > 0) {
                   const feature = e.features[0];
-                  new maplibregl.Popup().setLngLat(e.lngLat).setHTML(`
+                  new maplibregl.Popup()
+                    .setLngLat(e.lngLat)
+                    .setHTML(
+                      `
                     <div class="p-2">
                       <h3 class="font-medium">Building (${sourceName.toUpperCase()})</h3>
-                      ${Object.entries(feature.properties).map(([k, v]) => 
-                        `<div class="text-xs"><strong>${k}:</strong> ${v}</div>`).join("")}
-                    </div>`).addTo(this.map);
+                      ${Object.entries(feature.properties)
+                        .map(
+                          ([k, v]) =>
+                            `<div class="text-xs"><strong>${k}:</strong> ${v}</div>`
+                        )
+                        .join("")}
+                    </div>`
+                    )
+                    .addTo(this.map);
                 }
               });
 
-              this.map.on("mouseenter", layerId, () => this.map.getCanvas().style.cursor = "pointer");
-              this.map.on("mouseleave", layerId, () => this.map.getCanvas().style.cursor = "");
+              this.map.on(
+                "mouseenter",
+                layerId,
+                () => (this.map.getCanvas().style.cursor = "pointer")
+              );
+              this.map.on(
+                "mouseleave",
+                layerId,
+                () => (this.map.getCanvas().style.cursor = "")
+              );
             } catch (error) {
-              console.log(`Layer ${layerName} not found`);
+              console.log(`Layer ${sourceName} not found`);
             }
           });
           this.updateLayerSwitcher(addedLayers);
         }
 
         updateLayerSwitcher(layers) {
-          const existingSwitcher = document.getElementById('layer-switcher');
+          const existingSwitcher = document.getElementById("layer-switcher");
           if (existingSwitcher) existingSwitcher.remove();
           if (layers.length === 0) return;
 
-          const switcher = document.createElement('div');
-          switcher.id = 'layer-switcher';
-          switcher.className = 'absolute top-4 right-4 bg-white p-3 rounded-lg shadow-lg z-10 min-w-40';
+          const switcher = document.createElement("div");
+          switcher.id = "layer-switcher";
+          switcher.className =
+            "absolute top-4 right-4 bg-white p-3 rounded-lg shadow-lg z-10 min-w-40";
           switcher.innerHTML = `
             <h4 class="font-medium text-sm mb-3">Building Sources</h4>
-            ${layers.map(layer => `
+            ${layers
+              .map(
+                (layer) => `
               <label class="flex items-center mb-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
                 <input type="checkbox" id="layer-${layer.layerId}" checked 
-                       class="mr-2" onchange="app.toggleLayer('${layer.layerId}')">
-                <div class="w-3 h-3 mr-2 rounded-sm" style="background-color: ${layer.color}"></div>
+                       class="mr-2" onchange="app.toggleLayer('${
+                         layer.layerId
+                       }')">
+                <div class="w-3 h-3 mr-2 rounded-sm" style="background-color: ${
+                  layer.color
+                }"></div>
                 <span class="text-xs font-medium">${layer.name.toUpperCase()}</span>
-              </label>`).join('')}`;
+              </label>`
+              )
+              .join("")}`;
 
-          const mapContainer = document.getElementById('map');
+          const mapContainer = document.getElementById("map");
           if (mapContainer) mapContainer.appendChild(switcher);
         }
 
         toggleLayer(layerId) {
           const checkbox = document.getElementById(`layer-${layerId}`);
-          const visibility = checkbox.checked ? 'visible' : 'none';
-          
+          const visibility = checkbox.checked ? "visible" : "none";
+
           if (this.map.getLayer(layerId)) {
-            this.map.setLayoutProperty(layerId, 'visibility', visibility);
+            this.map.setLayoutProperty(layerId, "visibility", visibility);
           }
           if (this.map.getLayer(`${layerId}-outline`)) {
-            this.map.setLayoutProperty(`${layerId}-outline`, 'visibility', visibility);
+            this.map.setLayoutProperty(
+              `${layerId}-outline`,
+              "visibility",
+              visibility
+            );
           }
         }
 
