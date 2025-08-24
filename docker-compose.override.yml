@@ -8,9 +8,9 @@ services:
       - ./pyproject.toml:/app/pyproject.toml
       - ./tests:/app/tests
       - ./logs:/app/logs
-  
+
   huey:
-    command: sh -c "watchmedo auto-restart --directory=/app --pattern='*.py' --recursive -- python manage.py run_huey"
+    command: python -m watchdog.watchmedo auto-restart --directory=/app --pattern='*.py' --recursive -- python manage.py run_huey
     volumes:
       - ./apps:/app/apps
       - ./config:/app/config

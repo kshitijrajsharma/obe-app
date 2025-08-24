@@ -33,16 +33,18 @@ WORKDIR /app
 
 COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
-    if [ "$DEBUG" = "true" ] ; then \
-    uv sync --frozen --no-install-project ; \
+    DEBUG_LOWER=$(echo "$DEBUG" | tr '[:upper:]' '[:lower:]') && \
+    if [ "$DEBUG_LOWER" = "true" ] ; then \
+    uv sync --frozen --no-install-project --group dev ; \
     else \
     uv sync --frozen --no-install-project --no-dev ; \
     fi
 
 COPY . ./code
 RUN --mount=type=cache,target=/root/.cache/uv \
-    if [ "$DEBUG" = "true" ] ; then \
-    uv sync --frozen ; \
+    DEBUG_LOWER=$(echo "$DEBUG" | tr '[:upper:]' '[:lower:]') && \
+    if [ "$DEBUG_LOWER" = "true" ] ; then \
+    uv sync --frozen --group dev ; \
     else \
     uv sync --frozen --no-dev ; \
     fi
