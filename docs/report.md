@@ -158,3 +158,6 @@ Results :
 
 <img width="657" height="285" alt="image" src="https://github.com/user-attachments/assets/121d567b-049d-428e-9d94-dd33572ae4a1" />
 
+Source comparison with map analysis for different sources : Backend creates the pmtiles for them and frontend can effectively render them with maplibre JS and let user compare those by toggling them or downloading them
+
+<img width="1292" height="731" alt="image" src="https://github.com/user-attachments/assets/70504aa1-16cb-41ba-b896-652e5f193f1f" />
