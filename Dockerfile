@@ -59,11 +59,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /app/.venv /.venv
+COPY --from=builder /app/.venv /app/.venv
 COPY --from=builder /app/code /app
 COPY --from=builder /usr/local/bin/tippecanoe /usr/local/bin/tippecanoe
 
-ENV PATH="/.venv/bin:$PATH"
+ENV PATH="/app/.venv/bin:$PATH"
 
 WORKDIR /app
 
