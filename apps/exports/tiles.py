@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import subprocess
 import tempfile
@@ -7,39 +8,26 @@ from pathlib import Path
 from django.conf import settings
 from django.core.files.base import ContentFile
 
+logger = logging.getLogger(__name__)
+
 
 def generate_pmtiles_from_multiple_geojson(geojson_paths, export_run):
-    """Generate PMTiles from multiple GeoJSON files by merging them with tippecanoe."""
     tiles_dir = Path(settings.MEDIA_ROOT) / "tiles"
     tiles_dir.mkdir(exist_ok=True)
-
     output_path = tiles_dir / f"{export_run.id}.pmtiles"
 
-    cmd = [
-        "tippecanoe",
-        "--output",
-        str(output_path),
-        "--layer",
-        "buildings",
-        "--minimum-zoom",
-        "5",
-        "--maximum-zoom",
-        "18",
-        "--drop-densest-as-needed",
-        "--extend-zooms-if-still-dropping",
-        "--force",
-    ]
+    cmd = ["tippecanoe", "-o", str(output_path), "-Z5", "-z18", 
+           "--drop-densest-as-needed", "--extend-zooms-if-still-dropping", "--force"]
     
-    cmd.extend(geojson_paths)
+    for geojson_path in geojson_paths:
+        source_name = Path(geojson_path).stem.split('_')[0]
+        cmd.extend(["-L", f"{source_name}:{geojson_path}"])
 
     result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if result.returncode != 0:
         raise RuntimeError(f"Tippecanoe failed: {result.stderr}")
-
     if not output_path.exists():
-        raise RuntimeError(
-            f"Tippecanoe succeeded but output file {output_path} was not created"
-        )
+        raise RuntimeError(f"Output file {output_path} was not created")
 
     with open(output_path, "rb") as f:
         file_content = ContentFile(f.read())
@@ -53,50 +41,31 @@ def generate_pmtiles_from_multiple_geojson(geojson_paths, export_run):
 def generate_pmtiles_from_geojson(geojson_path, export_run):
     tiles_dir = Path(settings.MEDIA_ROOT) / "tiles"
     tiles_dir.mkdir(exist_ok=True)
-
     output_path = tiles_dir / f"{export_run.id}.pmtiles"
 
-    cmd = [
-        "tippecanoe",
-        "--output",
-        str(output_path),
-        "--layer",
-        "buildings",
-        "--minimum-zoom",
-        "5",
-        "--maximum-zoom",
-        "18",
-        "--drop-densest-as-needed",
-        "--extend-zooms-if-still-dropping",
-        "--force",
-        geojson_path,
-    ]
+    cmd = ["tippecanoe", "-o", str(output_path), "-Z5", "-z18",
+           "--drop-densest-as-needed", "--extend-zooms-if-still-dropping", 
+           "--force", "-L", f"buildings:{geojson_path}"]
 
     result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if result.returncode != 0:
         raise RuntimeError(f"Tippecanoe failed: {result.stderr}")
-
     if not output_path.exists():
-        raise RuntimeError(
-            f"Tippecanoe succeeded but output file {output_path} was not created"
-        )
+        raise RuntimeError(f"Output file {output_path} was not created")
 
     with open(output_path, "rb") as f:
         file_content = ContentFile(f.read())
         filename = f"{export_run.id}.pmtiles"
         export_run.tiles_file.save(filename, file_content)
         export_run.refresh_from_db()
-
     return output_path
 
 
 def generate_pmtiles_from_gdf(gdf, export_run):
     if gdf is None or gdf.empty:
         raise ValueError("GeoDataFrame is None or empty")
-
     tiles_dir = Path(settings.MEDIA_ROOT) / "tiles"
     tiles_dir.mkdir(exist_ok=True)
-
     output_path = tiles_dir / f"{export_run.id}.pmtiles"
 
     with tempfile.NamedTemporaryFile(

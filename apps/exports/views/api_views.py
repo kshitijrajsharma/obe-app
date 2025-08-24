@@ -1,9 +1,10 @@
 import json
+import re
 
 from django.contrib.gis.geos import GEOSGeometry
 from django.core.exceptions import ValidationError
 from django.db.models import Q
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, HttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema
 from rest_framework import filters, generics, status
@@ -433,29 +434,20 @@ class ExportRunTilesView(APIView):
                 return Response({"error": "No tiles available"}, status=404)
 
             range_header = request.META.get('HTTP_RANGE')
-            
             if range_header:
-                import re
                 range_match = re.match(r'bytes=(\d+)-(\d*)', range_header)
                 if range_match:
                     start = int(range_match.group(1))
                     end = int(range_match.group(2)) if range_match.group(2) else None
-                    
                     file_obj = export_run.tiles_file.open('rb')
                     file_size = export_run.tiles_file.size
-                    
                     if end is None:
                         end = file_size - 1
-                    
                     if start >= file_size or end >= file_size or start > end:
-                        from django.http import HttpResponse
-                        return HttpResponse(status=416)  # Range Not Satisfiable
-                    
+                        return HttpResponse(status=416)
                     file_obj.seek(start)
                     content = file_obj.read(end - start + 1)
                     file_obj.close()
-                    
-                    from django.http import HttpResponse
                     response = HttpResponse(content, status=206, content_type="application/octet-stream")
                     response['Accept-Ranges'] = 'bytes'
                     response['Content-Range'] = f'bytes {start}-{end}/{file_size}'
@@ -464,12 +456,9 @@ class ExportRunTilesView(APIView):
                     response['Access-Control-Allow-Headers'] = 'Range'
                     return response
 
-            response = FileResponse(
-                export_run.tiles_file.open("rb"),
-                content_type="application/octet-stream",
-                as_attachment=False,
-                filename=f"export_run_{pk}_tiles.pmtiles"
-            )
+            response = FileResponse(export_run.tiles_file.open("rb"), 
+                                  content_type="application/octet-stream", as_attachment=False,
+                                  filename=f"export_run_{pk}_tiles.pmtiles")
             response['Accept-Ranges'] = 'bytes'
             response['Access-Control-Allow-Origin'] = '*'
             response['Access-Control-Allow-Headers'] = 'Range'
