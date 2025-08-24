@@ -22,7 +22,15 @@ from ..serializers import (
 from ..tasks import process_export
 
 
-@extend_schema(tags=["Exports"])
+@extend_schema(
+    tags=["Exports"],
+    summary="List exports or create a new export",
+    description="Get a list of exports (public exports for anonymous users, user's exports + public for authenticated users) or create a new export.",
+    responses={
+        200: ExportSerializer(many=True),
+        201: ExportSerializer,
+    }
+)
 class ExportListCreateView(generics.ListCreateAPIView):
     serializer_class = ExportSerializer
     permission_classes = []
@@ -57,7 +65,15 @@ class ExportListCreateView(generics.ListCreateAPIView):
         export_run.save()
 
 
-@extend_schema(tags=["Exports"])
+@extend_schema(
+    tags=["Exports"],
+    summary="Retrieve, update or delete an export",
+    description="Get details of a specific export, update it, or delete it. Only accessible to export owner or if export is public.",
+    responses={
+        200: ExportSerializer,
+        404: {"description": "Export not found"},
+    }
+)
 class ExportDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = ExportSerializer
     permission_classes = []
@@ -71,7 +87,15 @@ class ExportDetailView(generics.RetrieveUpdateDestroyAPIView):
         return Export.objects.filter(is_public=True)
 
 
-@extend_schema(tags=["Export Runs"])
+@extend_schema(
+    tags=["Export Runs"],
+    summary="List export runs for an export",
+    description="Get a paginated list of export runs for a specific export. Supports filtering and ordering.",
+    responses={
+        200: ExportRunSerializer(many=True),
+        404: {"description": "Export not found"},
+    }
+)
 class ExportRunListView(generics.ListAPIView):
     serializer_class = ExportRunSerializer
     permission_classes = []
@@ -92,7 +116,16 @@ class ExportRunListView(generics.ListAPIView):
         return ExportRun.objects.filter(export_id=export_id, export__is_public=True)
 
 
-@extend_schema(tags=["Export Runs"])
+@extend_schema(
+    tags=["Export Runs"],
+    summary="Create a new export run",
+    description="Create a new export run for the specified export. User must own the export.",
+    responses={
+        201: CreateExportRunSerializer,
+        400: {"description": "Export is already being processed"},
+        404: {"description": "Export not found"},
+    }
+)
 class ExportRunCreateView(generics.CreateAPIView):
     serializer_class = CreateExportRunSerializer
     permission_classes = [IsAuthenticated]
@@ -110,7 +143,15 @@ class ExportRunCreateView(generics.CreateAPIView):
         serializer.save(export=export)
 
 
-@extend_schema(tags=["Export Runs"])
+@extend_schema(
+    tags=["Export Runs"],
+    summary="Get export run details",
+    description="Retrieve details of a specific export run.",
+    responses={
+        200: ExportRunSerializer,
+        404: {"description": "Export run not found"},
+    }
+)
 class ExportRunDetailView(generics.RetrieveAPIView):
     serializer_class = ExportRunSerializer
     permission_classes = []
@@ -126,7 +167,17 @@ class ExportRunDetailView(generics.RetrieveAPIView):
         return ExportRun.objects.filter(export__is_public=True)
 
 
-@extend_schema(tags=["Export Runs"], request=None, responses={200: ExportRunSerializer})
+@extend_schema(
+    tags=["Export Runs"],
+    summary="Start an export run",
+    description="Start processing an export run. The run will be queued for processing.",
+    request=None,
+    responses={
+        200: ExportRunSerializer,
+        400: {"description": "Export is already being processed"},
+        404: {"description": "Export run not found"},
+    }
+)
 class StartExportRunView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -158,16 +209,20 @@ class StartExportRunView(APIView):
 
 @extend_schema(
     tags=["Export Runs"],
+    summary="Download export output file",
+    description="Download the output file of a completed export run.",
     responses={
         200: {
-            "description": "Export file",
+            "description": "Export file download",
             "content": {
                 "application/octet-stream": {
                     "schema": {"type": "string", "format": "binary"}
                 }
             },
-        }
-    },
+        },
+        400: {"description": "Export run not completed or no output file"},
+        404: {"description": "Export run not found"},
+    }
 )
 class DownloadExportRunView(APIView):
     permission_classes = [IsAuthenticated]
@@ -193,7 +248,23 @@ class DownloadExportRunView(APIView):
             raise Http404("Export run not found")
 
 
-@extend_schema(tags=["Public"])
+@extend_schema(
+    tags=["Public"],
+    summary="Download public export output file",
+    description="Download the output file of a completed public export run.",
+    responses={
+        200: {
+            "description": "Export file download",
+            "content": {
+                "application/octet-stream": {
+                    "schema": {"type": "string", "format": "binary"}
+                }
+            },
+        },
+        400: {"description": "Export run not completed or no output file"},
+        404: {"description": "Export run not found or not public"},
+    }
+)
 class PublicDownloadExportRunView(APIView):
     permission_classes = []
 
@@ -218,7 +289,15 @@ class PublicDownloadExportRunView(APIView):
             raise Http404("Export run not found")
 
 
-@extend_schema(tags=["Public"])
+@extend_schema(
+    tags=["Public"],
+    summary="Get public export details",
+    description="Retrieve details of a public export.",
+    responses={
+        200: ExportSerializer,
+        404: {"description": "Export not found or not public"},
+    }
+)
 class PublicExportDetailView(generics.RetrieveAPIView):
     serializer_class = ExportSerializer
     permission_classes = []
@@ -228,7 +307,15 @@ class PublicExportDetailView(generics.RetrieveAPIView):
         return Export.objects.filter(is_public=True)
 
 
-@extend_schema(tags=["Public"])
+@extend_schema(
+    tags=["Public"],
+    summary="List export runs for a public export",
+    description="Get a paginated list of export runs for a public export.",
+    responses={
+        200: ExportRunSerializer(many=True),
+        404: {"description": "Export not found or not public"},
+    }
+)
 class PublicExportRunListView(generics.ListAPIView):
     serializer_class = ExportRunSerializer
     permission_classes = []
@@ -242,7 +329,33 @@ class PublicExportRunListView(generics.ListAPIView):
         return ExportRun.objects.filter(export_id=export_id, export__is_public=True)
 
 
-@extend_schema(tags=["Stats"])
+@extend_schema(
+    tags=["Stats"],
+    summary="Get export run statistics",
+    description="Retrieve detailed statistics for an export run including building count, file size, duration, and more.",
+    responses={
+        200: {
+            "type": "object",
+            "properties": {
+                "run_id": {"type": "string", "format": "uuid"},
+                "export_name": {"type": "string"},
+                "status": {"type": "string"},
+                "building_count": {"type": "integer"},
+                "file_size": {"type": "integer"},
+                "duration": {"type": "string", "nullable": True},
+                "sources": {"type": "object"},
+                "files": {"type": "object"},
+                "population": {"type": "object"},
+                "created_at": {"type": "string", "format": "date-time"},
+                "completed_at": {"type": "string", "format": "date-time", "nullable": True},
+                "area_of_interest": {"type": "object"},
+                "output_formats": {"type": "array", "items": {"type": "string"}},
+            },
+        },
+        403: {"description": "Access denied"},
+        404: {"description": "Export run not found"},
+    }
+)
 class ExportRunStatsView(APIView):
     permission_classes = []
 
@@ -284,7 +397,23 @@ class ExportRunStatsView(APIView):
             raise Http404("Export run not found")
 
 
-@extend_schema(tags=["Tiles"])
+@extend_schema(
+    tags=["Tiles"],
+    summary="Download export run tiles",
+    description="Download the vector tiles file for an export run.",
+    responses={
+        200: {
+            "description": "Vector tiles file",
+            "content": {
+                "application/vnd.mapbox-vector-tile": {
+                    "schema": {"type": "string", "format": "binary"}
+                }
+            },
+        },
+        403: {"description": "Access denied"},
+        404: {"description": "Export run not found or no tiles available"},
+    }
+)
 class ExportRunTilesView(APIView):
     permission_classes = []
 
@@ -315,17 +444,35 @@ class ExportRunTilesView(APIView):
 
 @extend_schema(
     tags=["Utilities"],
-    request={"type": "object", "properties": {"geometry": {"type": "object"}}},
+    summary="Validate area of interest geometry",
+    description="Validate a GeoJSON geometry for use as area of interest. Returns validation status, area in km², and centroid.",
+    request={
+        "type": "object",
+        "properties": {
+            "geometry": {
+                "type": "object",
+                "description": "GeoJSON geometry object (must be a Polygon)"
+            }
+        },
+        "required": ["geometry"]
+    },
     responses={
         200: {
             "type": "object",
             "properties": {
                 "valid": {"type": "boolean"},
                 "area_km2": {"type": "number"},
-                "centroid": {"type": "object"},
+                "centroid": {
+                    "type": "object",
+                    "properties": {
+                        "lat": {"type": "number"},
+                        "lng": {"type": "number"}
+                    }
+                },
             },
-        }
-    },
+        },
+        400: {"description": "Invalid geometry or area too large"},
+    }
 )
 class ValidateAOIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -381,12 +528,18 @@ class ValidateAOIView(APIView):
 
 @extend_schema(
     tags=["Utilities"],
+    summary="Get source configuration schema",
+    description="Retrieve the JSON schema for configuring a specific data source.",
     responses={
         200: {
             "type": "object",
-            "properties": {"source": {"type": "string"}, "schema": {"type": "object"}},
-        }
-    },
+            "properties": {
+                "source": {"type": "string"},
+                "schema": {"type": "object"}
+            },
+        },
+        404: {"description": "Unknown source"},
+    }
 )
 class SourceConfigSchemaView(APIView):
     permission_classes = [IsAuthenticated]
@@ -400,6 +553,16 @@ class SourceConfigSchemaView(APIView):
         return Response({"source": source, "schema": SOURCE_CONFIG_SCHEMA[source]})
 
 
+@extend_schema(
+    tags=["Export Runs"],
+    summary="Re-run an export",
+    description="Create a new export run for an existing export and start processing.",
+    request=None,
+    responses={
+        201: ExportRunSerializer,
+        404: {"description": "Export not found"},
+    }
+)
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def rerun_export(request, export_id):
@@ -413,7 +576,14 @@ def rerun_export(request, export_id):
     return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
-@extend_schema(tags=["Public"])
+@extend_schema(
+    tags=["Public"],
+    summary="List public exports",
+    description="Get a paginated list of all public exports available to everyone.",
+    responses={
+        200: ExportSerializer(many=True),
+    }
+)
 class PublicExportListView(generics.ListAPIView):
     serializer_class = ExportSerializer
     permission_classes = []

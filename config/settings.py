@@ -200,7 +200,7 @@ SIMPLE_JWT = {
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "OBE API",
-    "DESCRIPTION": "Open Buildings Extractor - Building Export API",
+    "DESCRIPTION": "Open Buildings Extractor - Building Export API for extracting and processing building footprint data from multiple sources including Google Open Buildings, Microsoft Building Footprints, OpenStreetMap, and Overture Maps.",
     "VERSION": VERSION,
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
@@ -210,6 +210,28 @@ SPECTACULAR_SETTINGS = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ],
+    "TAGS": [
+        {"name": "Exports", "description": "Create and manage building data exports"},
+        {
+            "name": "Export Runs",
+            "description": "Execute and monitor export processing jobs",
+        },
+        {
+            "name": "Public",
+            "description": "Public exports accessible without authentication",
+        },
+        {"name": "Stats", "description": "Export statistics and analytics"},
+        {"name": "Tiles", "description": "Vector tile downloads"},
+        {"name": "Utilities", "description": "Validation and configuration utilities"},
+    ],
+    "CONTACT": {
+        "name": "OBE API Support",
+        "url": "https://github.com/kshitijrajsharma/obe-app",
+    },
+    "LICENSE": {
+        "name": "MIT License",
+        "url": "https://github.com/kshitijrajsharma/obe-app/blob/master/LICENSE",
+    },
 }
 
 CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS", default=[])
