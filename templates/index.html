@@ -28,7 +28,7 @@
         overflow-y: auto;
       }
       #map {
-        height: 70vh;
+        height: 81vh;
         min-height: 400px;
       }
 
@@ -110,12 +110,13 @@
       <div
         class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center"
       >
-        <h1
-          class="text-2xl font-bold text-emerald-600 cursor-pointer"
+        <div
+          class="flex items-baseline space-x-2 text-emerald-600 cursor-pointer"
           onclick="app.showExports()"
         >
-          OBE
-        </h1>
+          <span class="text-2xl font-bold">OBE</span>
+          <span class="text-xs text-gray-500">open buildings extractor</span>
+        </div>
         <div id="auth-buttons" class="flex space-x-3">
           <button
             id="login-btn"
@@ -139,11 +140,11 @@
       </div>
     </div>
 
-    <div class="max-w-7xl mx-auto px-4 py-6">
+    <div class="max-w-7xl mx-auto px-4 py-4">
       <div id="main-grid" class="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <div id="left-panel" class="lg:col-span-1">
           <div
-            class="bg-white rounded-lg shadow-sm h-[calc(100vh-200px)] min-h-[600px] flex flex-col"
+            class="bg-white rounded-lg shadow-sm h-[calc(100vh-140px)] min-h-[700px] flex flex-col"
           >
             <div id="exports-view" class="p-6 flex-1 overflow-y-auto">
               <div class="flex justify-between items-center mb-6">
@@ -397,7 +398,7 @@
 
         <div id="right-panel" class="lg:col-span-2">
           <div
-            class="bg-white rounded-lg shadow-sm h-[calc(100vh-200px)] min-h-[600px] flex flex-col"
+            class="bg-white rounded-lg shadow-sm h-[calc(100vh-140px)] min-h-[700px] flex flex-col"
           >
             <div class="flex justify-between items-center p-4 border-b">
               <h3 class="font-semibold text-gray-800">Interactive Map</h3>
@@ -943,27 +944,34 @@
 
         handleMapClick(e) {
           const point = [e.point.x, e.point.y];
-          
+
           const pmtilesLayerIds = this.pmtilesLayers
-            .filter(layer => {
-              const visibility = this.map.getLayoutProperty(layer.layerId, 'visibility');
-              return visibility !== 'none';
+            .filter((layer) => {
+              const visibility = this.map.getLayoutProperty(
+                layer.layerId,
+                "visibility"
+              );
+              return visibility !== "none";
             })
-            .map(layer => layer.layerId);
+            .map((layer) => layer.layerId);
 
           if (pmtilesLayerIds.length === 0) return;
 
-          const features = this.map.queryRenderedFeatures(point, { 
-            layers: pmtilesLayerIds 
+          const features = this.map.queryRenderedFeatures(point, {
+            layers: pmtilesLayerIds,
           });
-          
+
           if (features.length === 0) return;
 
           const layerFeatures = {};
           features.forEach((feature) => {
             const layerId = feature.layer.id;
-            const layerInfo = this.pmtilesLayers.find(l => l.layerId === layerId);
-            const layerName = layerInfo ? layerInfo.name : feature.layer.id.replace(/-fill$|-line$/, "");
+            const layerInfo = this.pmtilesLayers.find(
+              (l) => l.layerId === layerId
+            );
+            const layerName = layerInfo
+              ? layerInfo.name
+              : feature.layer.id.replace(/-fill$|-line$/, "");
 
             if (!layerFeatures[layerName]) {
               layerFeatures[layerName] = [];
@@ -975,48 +983,58 @@
             .map(([layerName, layerFeaturesList]) => {
               const uniqueFeatures = layerFeaturesList.filter(
                 (feature, idx, arr) =>
-                  idx === arr.findIndex(
-                    (f) => JSON.stringify(f.properties) === JSON.stringify(feature.properties)
+                  idx ===
+                  arr.findIndex(
+                    (f) =>
+                      JSON.stringify(f.properties) ===
+                      JSON.stringify(feature.properties)
                   )
               );
 
-              if (uniqueFeatures.length === 0 || 
-                  Object.keys(uniqueFeatures[0].properties || {}).length === 0) {
-                return '';
+              if (
+                uniqueFeatures.length === 0 ||
+                Object.keys(uniqueFeatures[0].properties || {}).length === 0
+              ) {
+                return "";
               }
 
               return uniqueFeatures
                 .map((feature) => {
                   const properties = feature.properties || {};
                   const propertyEntries = Object.entries(properties);
-                  
-                  if (propertyEntries.length === 0) return '';
-                  
+
+                  if (propertyEntries.length === 0) return "";
+
                   return `
                     <div class="mb-3">
                       <h3 class="font-medium text-emerald-700 mb-2">${layerName.toUpperCase()}</h3>
                       <div class="space-y-1">
                         ${propertyEntries
-                          .map(([k, v]) => `<div class="text-xs"><strong>${k}:</strong> ${v}</div>`)
+                          .map(
+                            ([k, v]) =>
+                              `<div class="text-xs"><strong>${k}:</strong> ${v}</div>`
+                          )
                           .join("")}
                       </div>
                     </div>
                   `;
                 })
-                .filter(content => content.length > 0)
+                .filter((content) => content.length > 0)
                 .join("");
             })
-            .filter(content => content.length > 0)
+            .filter((content) => content.length > 0)
             .join('<hr class="my-3 border-gray-200">');
 
           if (popupContent.trim()) {
             new maplibregl.Popup({ maxWidth: "300px" })
               .setLngLat(e.lngLat)
-              .setHTML(`
+              .setHTML(
+                `
                 <div class="max-h-80 overflow-y-auto p-2">
                   ${popupContent}
                 </div>
-              `)
+              `
+              )
               .addTo(this.map);
           }
         }
@@ -1075,6 +1093,12 @@
             leftPanel.className = "xl:col-span-1";
             rightPanel.className = "xl:col-span-2";
           }
+
+          setTimeout(() => {
+            if (this.map) {
+              this.map.resize();
+            }
+          }, 100);
         }
 
         renderAuth() {
@@ -1721,7 +1745,12 @@
                   });
 
                   addedLayers.push({ name: layerName, layerId, color });
-                  this.pmtilesLayers.push({ name: layerName, layerId, color, sourceId });
+                  this.pmtilesLayers.push({
+                    name: layerName,
+                    layerId,
+                    color,
+                    sourceId,
+                  });
 
                   this.map.on(
                     "mouseenter",
@@ -1752,7 +1781,12 @@
                 paint: { "fill-color": color, "fill-opacity": 0.6 },
               });
               addedLayers.push({ name: "buildings", layerId, color });
-              this.pmtilesLayers.push({ name: "buildings", layerId, color, sourceId });
+              this.pmtilesLayers.push({
+                name: "buildings",
+                layerId,
+                color,
+                sourceId,
+              });
             }
 
             this.updateLayerSwitcher(addedLayers);
@@ -2027,5 +2061,21 @@
 
       const app = new OBEApp();
     </script>
+
+    <footer class="py-3 mt-6 border-t border-gray-100">
+      <div class="max-w-7xl mx-auto px-4 text-center">
+        <p class="text-xs text-gray-400">
+          made with <span class="text-red-400">♥</span> by
+          <a
+            href="https://github.com/kshitijrajsharma/"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-emerald-500 hover:text-emerald-600 transition-colors"
+          >
+            kshitij raj sharma
+          </a>
+        </p>
+      </div>
+    </footer>
   </body>
 </html>
