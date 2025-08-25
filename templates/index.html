@@ -353,7 +353,10 @@
                   <h3 class="text-md font-semibold">Export Runs</h3>
                   <span id="runs-count" class="text-sm text-gray-500"></span>
                 </div>
-                <div id="runs-list" class="flex-1 overflow-y-auto space-y-2"></div>
+                <div
+                  id="runs-list"
+                  class="flex-1 overflow-y-auto space-y-2"
+                ></div>
               </div>
             </div>
 
@@ -364,8 +367,18 @@
                     id="run-detail-back"
                     class="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
                   >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    <svg
+                      class="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M15 19l-7-7 7-7"
+                      ></path>
                     </svg>
                   </button>
                   <h2 class="text-lg font-semibold">Run Details</h2>
@@ -459,6 +472,7 @@
           this.countries = [];
           this.selectedExport = null;
           this.currentRunId = null;
+          this.pmtilesLayers = [];
           this.init();
         }
 
@@ -489,6 +503,10 @@
               this.updateDrawnArea(e.features[0])
             );
             this.map.on("draw.delete", () => this.updateDrawnArea(null));
+
+            this.map.on("click", (e) => {
+              this.handleMapClick(e);
+            });
           });
 
           this.setupEvents();
@@ -923,6 +941,86 @@
           }, 150);
         }
 
+        handleMapClick(e) {
+          const point = [e.point.x, e.point.y];
+          
+          const pmtilesLayerIds = this.pmtilesLayers
+            .filter(layer => {
+              const visibility = this.map.getLayoutProperty(layer.layerId, 'visibility');
+              return visibility !== 'none';
+            })
+            .map(layer => layer.layerId);
+
+          if (pmtilesLayerIds.length === 0) return;
+
+          const features = this.map.queryRenderedFeatures(point, { 
+            layers: pmtilesLayerIds 
+          });
+          
+          if (features.length === 0) return;
+
+          const layerFeatures = {};
+          features.forEach((feature) => {
+            const layerId = feature.layer.id;
+            const layerInfo = this.pmtilesLayers.find(l => l.layerId === layerId);
+            const layerName = layerInfo ? layerInfo.name : feature.layer.id.replace(/-fill$|-line$/, "");
+
+            if (!layerFeatures[layerName]) {
+              layerFeatures[layerName] = [];
+            }
+            layerFeatures[layerName].push(feature);
+          });
+
+          const popupContent = Object.entries(layerFeatures)
+            .map(([layerName, layerFeaturesList]) => {
+              const uniqueFeatures = layerFeaturesList.filter(
+                (feature, idx, arr) =>
+                  idx === arr.findIndex(
+                    (f) => JSON.stringify(f.properties) === JSON.stringify(feature.properties)
+                  )
+              );
+
+              if (uniqueFeatures.length === 0 || 
+                  Object.keys(uniqueFeatures[0].properties || {}).length === 0) {
+                return '';
+              }
+
+              return uniqueFeatures
+                .map((feature) => {
+                  const properties = feature.properties || {};
+                  const propertyEntries = Object.entries(properties);
+                  
+                  if (propertyEntries.length === 0) return '';
+                  
+                  return `
+                    <div class="mb-3">
+                      <h3 class="font-medium text-emerald-700 mb-2">${layerName.toUpperCase()}</h3>
+                      <div class="space-y-1">
+                        ${propertyEntries
+                          .map(([k, v]) => `<div class="text-xs"><strong>${k}:</strong> ${v}</div>`)
+                          .join("")}
+                      </div>
+                    </div>
+                  `;
+                })
+                .filter(content => content.length > 0)
+                .join("");
+            })
+            .filter(content => content.length > 0)
+            .join('<hr class="my-3 border-gray-200">');
+
+          if (popupContent.trim()) {
+            new maplibregl.Popup({ maxWidth: "300px" })
+              .setLngLat(e.lngLat)
+              .setHTML(`
+                <div class="max-h-80 overflow-y-auto p-2">
+                  ${popupContent}
+                </div>
+              `)
+              .addTo(this.map);
+          }
+        }
+
         render() {
           document
             .getElementById("exports-view")
@@ -967,7 +1065,10 @@
           const leftPanel = document.getElementById("left-panel");
           const rightPanel = document.getElementById("right-panel");
 
-          if (this.currentView === "detail" || this.currentView === "run-detail") {
+          if (
+            this.currentView === "detail" ||
+            this.currentView === "run-detail"
+          ) {
             leftPanel.className = "xl:col-span-2";
             rightPanel.className = "xl:col-span-1";
           } else {
@@ -1115,18 +1216,26 @@
                             ? p.user.split("@")[0]
                             : p.user || "unknown"
                         }</div>
-                        ${p.description ? `<div class="col-span-2"><span class="font-medium">Description:</span> ${p.description}</div>` : ''}
+                        ${
+                          p.description
+                            ? `<div class="col-span-2"><span class="font-medium">Description:</span> ${p.description}</div>`
+                            : ""
+                        }
                     </div>
                 `;
         }
 
         renderRuns(runs) {
-          document.getElementById("runs-count").textContent = `${runs.length} runs`;
+          document.getElementById(
+            "runs-count"
+          ).textContent = `${runs.length} runs`;
           document.getElementById("runs-list").innerHTML = runs.length
             ? runs
                 .map(
                   (run) => `
-                <div class="p-3 border rounded hover:bg-gray-50 cursor-pointer transition-colors" onclick="app.showRunDetail('${run.id}')">
+                <div class="p-3 border rounded hover:bg-gray-50 cursor-pointer transition-colors" onclick="app.showRunDetail('${
+                  run.id
+                }')">
                   <div class="flex justify-between items-center">
                     <div class="flex items-center space-x-3">
                       <span class="text-xs px-2 py-1 rounded ${
@@ -1140,19 +1249,28 @@
                       }">
                         ${run.status}
                       </span>
-                      <span class="text-sm font-medium">#${run.id.slice(-8)}</span>
+                      <span class="text-sm font-medium">#${run.id.slice(
+                        -8
+                      )}</span>
                     </div>
                     <div class="text-right">
-                      <div class="text-xs text-gray-500">${new Date(run.created_at).toLocaleDateString()}</div>
-                      <div class="text-xs text-gray-400">${new Date(run.created_at).toLocaleTimeString()}</div>
+                      <div class="text-xs text-gray-500">${new Date(
+                        run.created_at
+                      ).toLocaleDateString()}</div>
+                      <div class="text-xs text-gray-400">${new Date(
+                        run.created_at
+                      ).toLocaleTimeString()}</div>
                     </div>
                   </div>
-                  ${run.status === "completed" && run.results?.sources 
-                    ? `<div class="mt-2 text-xs text-gray-600">
+                  ${
+                    run.status === "completed" && run.results?.sources
+                      ? `<div class="mt-2 text-xs text-gray-600">
                         ${Object.keys(run.results.sources).join(", ")} • 
-                        ${Object.values(run.results.sources).reduce((sum, s) => sum + (s.building_count || 0), 0).toLocaleString()} buildings
+                        ${Object.values(run.results.sources)
+                          .reduce((sum, s) => sum + (s.building_count || 0), 0)
+                          .toLocaleString()} buildings
                        </div>`
-                    : ""
+                      : ""
                   }
                 </div>`
                 )
@@ -1168,13 +1286,14 @@
 
         renderRunDetail() {
           if (!this.currentRunId) return;
-          
+
           // Find the run data
           const runs = this.currentExportRuns || [];
-          const run = runs.find(r => r.id === this.currentRunId);
-          
+          const run = runs.find((r) => r.id === this.currentRunId);
+
           if (!run) {
-            document.getElementById("run-details").innerHTML = '<div class="text-red-500">Run not found</div>';
+            document.getElementById("run-details").innerHTML =
+              '<div class="text-red-500">Run not found</div>';
             return;
           }
 
@@ -1201,36 +1320,75 @@
                   </div>
                   <div>
                     <span class="text-gray-600">Created:</span>
-                    <span class="ml-2">${new Date(run.created_at).toLocaleString()}</span>
+                    <span class="ml-2">${new Date(
+                      run.created_at
+                    ).toLocaleString()}</span>
                   </div>
-                  ${run.completed_at ? `
+                  ${
+                    run.completed_at
+                      ? `
                   <div>
                     <span class="text-gray-600">Completed:</span>
-                    <span class="ml-2">${new Date(run.completed_at).toLocaleString()}</span>
-                  </div>` : ''}
+                    <span class="ml-2">${new Date(
+                      run.completed_at
+                    ).toLocaleString()}</span>
+                  </div>`
+                      : ""
+                  }
                 </div>
                 
-                ${run.status === "completed" ? `
+                ${
+                  run.status === "completed"
+                    ? `
                 <div class="mt-4 flex space-x-2">
-                  ${run.download_url ? `
-                  <button onclick="app.downloadRun('${run.id}')" class="px-2 py-1 text-xs bg-emerald-600 text-white rounded hover:bg-emerald-700">
-                    Download ${run.file_size ? `(${(run.file_size / 1024 / 1024).toFixed(1)}MB)` : ''}
-                  </button>` : ''}
-                  ${run.tiles_url ? `
+                  ${
+                    run.download_url
+                      ? `
+                  <button onclick="app.downloadRun('${
+                    run.id
+                  }')" class="px-2 py-1 text-xs bg-emerald-600 text-white rounded hover:bg-emerald-700">
+                    Download ${
+                      run.file_size
+                        ? `(${(run.file_size / 1024 / 1024).toFixed(1)}MB)`
+                        : ""
+                    }
+                  </button>`
+                      : ""
+                  }
+                  ${
+                    run.tiles_url
+                      ? `
                   <button onclick="app.downloadTiles('${run.id}')" class="px-2 py-1 text-xs bg-emerald-600 text-white rounded hover:bg-emerald-700">
                     Download Tiles
-                  </button>` : ''}
-                  <button onclick="app.downloadStats('${run.id}')" class="px-2 py-1 text-xs bg-gray-100 rounded hover:bg-gray-200">
+                  </button>`
+                      : ""
+                  }
+                  <button onclick="app.downloadStats('${
+                    run.id
+                  }')" class="px-2 py-1 text-xs bg-gray-100 rounded hover:bg-gray-200">
                     Export JSON
                   </button>
-                  ${run.results?.tiles_available ? `
+                  ${
+                    run.results?.tiles_available
+                      ? `
                   <button onclick="app.viewOnMap('${run.id}')" class="px-2 py-1 text-xs bg-emerald-100 text-emerald-700 rounded hover:bg-emerald-200">
                     View on Map
-                  </button>` : ''}
-                </div>` : ''}
+                  </button>`
+                      : ""
+                  }
+                </div>`
+                    : ""
+                }
               </div>
               
-              ${run.status === "completed" && run.results ? this.renderSourceComparison({ ...run.results, run_id: run.id }) : ''}
+              ${
+                run.status === "completed" && run.results
+                  ? this.renderSourceComparison({
+                      ...run.results,
+                      run_id: run.id,
+                    })
+                  : ""
+              }
             </div>
           `;
         }
@@ -1563,27 +1721,7 @@
                   });
 
                   addedLayers.push({ name: layerName, layerId, color });
-
-                  this.map.on("click", layerId, (e) => {
-                    if (e.features.length > 0) {
-                      const feature = e.features[0];
-                      new maplibregl.Popup()
-                        .setLngLat(e.lngLat)
-                        .setHTML(
-                          `
-                        <div class="p-2">
-                          <h3 class="font-medium">Building (${layerName.toUpperCase()})</h3>
-                          ${Object.entries(feature.properties)
-                            .map(
-                              ([k, v]) =>
-                                `<div class="text-xs"><strong>${k}:</strong> ${v}</div>`
-                            )
-                            .join("")}
-                        </div>`
-                        )
-                        .addTo(this.map);
-                    }
-                  });
+                  this.pmtilesLayers.push({ name: layerName, layerId, color, sourceId });
 
                   this.map.on(
                     "mouseenter",
@@ -1614,6 +1752,7 @@
                 paint: { "fill-color": color, "fill-opacity": 0.6 },
               });
               addedLayers.push({ name: "buildings", layerId, color });
+              this.pmtilesLayers.push({ name: "buildings", layerId, color, sourceId });
             }
 
             this.updateLayerSwitcher(addedLayers);
@@ -1668,27 +1807,6 @@
               });
 
               addedLayers.push({ name: sourceName, layerId, color });
-
-              this.map.on("click", layerId, (e) => {
-                if (e.features.length > 0) {
-                  const feature = e.features[0];
-                  new maplibregl.Popup()
-                    .setLngLat(e.lngLat)
-                    .setHTML(
-                      `
-                    <div class="p-2">
-                      <h3 class="font-medium">Building (${sourceName.toUpperCase()})</h3>
-                      ${Object.entries(feature.properties)
-                        .map(
-                          ([k, v]) =>
-                            `<div class="text-xs"><strong>${k}:</strong> ${v}</div>`
-                        )
-                        .join("")}
-                    </div>`
-                    )
-                    .addTo(this.map);
-                }
-              });
 
               this.map.on(
                 "mouseenter",
