@@ -31,6 +31,69 @@
         height: 70vh;
         min-height: 400px;
       }
+      
+      .tooltip {
+        position: relative;
+        cursor: help;
+      }
+      
+      .tooltip:hover::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: 125%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.9);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        white-space: nowrap;
+        z-index: 9999;
+        opacity: 1;
+        transition: opacity 0.2s;
+        pointer-events: none;
+      }
+      
+      .tooltip:hover::before {
+        content: '';
+        position: absolute;
+        bottom: 120%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 5px solid transparent;
+        border-top-color: rgba(0, 0, 0, 0.9);
+        z-index: 9999;
+        pointer-events: none;
+      }
+      
+      .export-card {
+        transition: all 0.2s ease-in-out;
+      }
+      
+      .export-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+      }
+      
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+      }
+      
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 3px;
+      }
+      
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #10b981;
+        border-radius: 3px;
+      }
+      
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #059669;
+      }
+      
       @media (max-width: 768px) {
         #map {
           height: 50vh;
@@ -77,28 +140,28 @@
     </div>
 
     <div class="max-w-7xl mx-auto px-4 py-6">
-      <div id="main-grid" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div id="main-grid" class="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <div id="left-panel" class="lg:col-span-1">
-          <div class="bg-white rounded-lg shadow-sm">
-            <div id="exports-view" class="p-6">
+          <div class="bg-white rounded-lg shadow-sm h-[600px] flex flex-col">
+            <div id="exports-view" class="p-6 flex-1 overflow-y-auto">
               <div class="flex justify-between items-center mb-6">
                 <h2 class="text-xl font-semibold">Exports</h2>
                 <div class="flex space-x-2">
                   <button
                     id="show-all"
-                    class="px-3 py-1 text-sm bg-emerald-100 text-emerald-700 rounded"
+                    class="px-3 py-1 text-sm bg-emerald-100 text-emerald-700 rounded transition-colors"
                   >
                     All
                   </button>
                   <button
                     id="show-mine"
-                    class="hidden px-3 py-1 text-sm text-gray-600 hover:bg-gray-100 rounded"
+                    class="hidden px-3 py-1 text-sm text-gray-600 hover:bg-gray-100 rounded transition-colors"
                   >
                     Mine
                   </button>
                   <button
                     id="create-new"
-                    class="px-3 py-1 text-sm bg-emerald-600 text-white rounded hover:bg-emerald-700"
+                    class="px-3 py-1 text-sm bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors"
                   >
                     + New
                   </button>
@@ -106,7 +169,7 @@
               </div>
               <div
                 id="exports-list"
-                class="space-y-3 max-h-96 overflow-y-auto"
+                class="space-y-3 max-h-96 overflow-y-auto custom-scrollbar"
               ></div>
             </div>
 
@@ -280,10 +343,34 @@
         </div>
 
         <div id="right-panel" class="lg:col-span-2">
-          <div class="bg-white rounded-lg shadow-sm p-4">
-            <div id="map" class="w-full rounded border"></div>
+          <div class="bg-white rounded-lg shadow-sm h-[600px] flex flex-col">
+            <div class="flex justify-between items-center p-4 border-b">
+              <h3 class="font-semibold text-gray-800"></h3>
+              <button id="expand-map" class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors" title="Fullscreen Map">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path>
+                </svg>
+              </button>
+            </div>
+            <div class="flex-1 p-2">
+              <div id="map" class="w-full h-full rounded border"></div>
+            </div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <div id="fullscreen-map" class="hidden fixed inset-0 bg-black bg-opacity-90 z-50">
+      <div class="flex flex-col h-full">
+        <div class="flex justify-between items-center p-4 bg-white">
+          <h3 class="text-lg font-semibold text-gray-800">Fullscreen View</h3>
+          <button id="close-fullscreen" class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+        <div id="fullscreen-map-container" class="flex-1"></div>
       </div>
     </div>
 
@@ -393,27 +480,19 @@
         }
 
         setupEvents() {
-          document.getElementById("login-btn").onclick = () =>
-            this.showAuth(true);
-          document.getElementById("signup-btn").onclick = () =>
-            this.showAuth(false);
+          document.getElementById("login-btn").onclick = () => this.showAuth(true);
+          document.getElementById("signup-btn").onclick = () => this.showAuth(false);
           document.getElementById("logout-btn").onclick = () => this.logout();
-          document.getElementById("show-all").onclick = () =>
-            this.toggleFilter(false);
-          document.getElementById("show-mine").onclick = () =>
-            this.toggleFilter(true);
-          document.getElementById("create-new").onclick = () =>
-            this.showCreate();
-          document.getElementById("auth-cancel").onclick = () =>
-            this.showExports();
-          document.getElementById("auth-toggle").onclick = () =>
-            this.toggleAuthMode();
-          document.getElementById("create-cancel").onclick = () =>
-            this.showExports();
-          document.getElementById("detail-cancel").onclick = () =>
-            this.showExports();
-          document.getElementById("export-source").onchange = () =>
-            this.updateSourceConfigs();
+          document.getElementById("show-all").onclick = () => this.toggleFilter(false);
+          document.getElementById("show-mine").onclick = () => this.toggleFilter(true);
+          document.getElementById("create-new").onclick = () => this.showCreate();
+          document.getElementById("expand-map").onclick = () => this.expandMap();
+          document.getElementById("close-fullscreen").onclick = () => this.closeFullscreen();
+          document.getElementById("auth-cancel").onclick = () => this.showExports();
+          document.getElementById("auth-toggle").onclick = () => this.toggleAuthMode();
+          document.getElementById("create-cancel").onclick = () => this.showExports();
+          document.getElementById("detail-cancel").onclick = () => this.showExports();
+          document.getElementById("export-source").onchange = () => this.updateSourceConfigs();
           document.getElementById("upload-btn").onclick = () =>
             document.getElementById("file-upload").click();
           document.getElementById("file-upload").onchange = (e) =>
@@ -561,17 +640,13 @@
           e.preventDefault();
           const username = document.getElementById("username").value;
           const password = document.getElementById("password").value;
-          const passwordConfirm =
-            document.getElementById("password-confirm").value;
+          const passwordConfirm = document.getElementById("password-confirm").value;
           const email = document.getElementById("email").value;
 
-          // Clear any previous errors
           document.getElementById("auth-error").classList.add("hidden");
 
-          // Validate password confirmation for signup
           if (!this.isLogin && password !== passwordConfirm) {
-            document.getElementById("auth-error").textContent =
-              "Passwords do not match";
+            document.getElementById("auth-error").textContent = "Passwords do not match";
             document.getElementById("auth-error").classList.remove("hidden");
             return;
           }
@@ -700,6 +775,32 @@
           this.showExports();
         }
 
+        expandMap() {
+          const mapContainer = document.getElementById("map");
+          const fullscreenContainer = document.getElementById("fullscreen-map-container");
+          const fullscreenModal = document.getElementById("fullscreen-map");
+          
+          fullscreenContainer.appendChild(mapContainer);
+          fullscreenModal.classList.remove("hidden");
+          
+          setTimeout(() => {
+            if (this.map) this.map.resize();
+          }, 100);
+        }
+
+        closeFullscreen() {
+          const mapContainer = document.getElementById("map");
+          const originalContainer = document.querySelector("#right-panel .flex-1.p-2");
+          const fullscreenModal = document.getElementById("fullscreen-map");
+          
+          originalContainer.appendChild(mapContainer);
+          fullscreenModal.classList.add("hidden");
+          
+          setTimeout(() => {
+            if (this.map) this.map.resize();
+          }, 100);
+        }
+
         render() {
           document
             .getElementById("exports-view")
@@ -742,13 +843,11 @@
           const rightPanel = document.getElementById("right-panel");
 
           if (this.currentView === "detail") {
-            // For detail view, give more space to the left panel
-            leftPanel.className = "lg:col-span-2";
-            rightPanel.className = "lg:col-span-1";
+            leftPanel.className = "xl:col-span-2";
+            rightPanel.className = "xl:col-span-1";
           } else {
-            // For other views, standard layout
-            leftPanel.className = "lg:col-span-1";
-            rightPanel.className = "lg:col-span-2";
+            leftPanel.className = "xl:col-span-1";
+            rightPanel.className = "xl:col-span-2";
           }
         }
 
@@ -810,7 +909,7 @@
                   }
 
                   return `
-                        <div class="border rounded p-3 cursor-pointer hover:bg-gray-50" onclick="app.showDetail('${id}')">
+                        <div class="export-card border rounded-lg p-4 cursor-pointer hover:bg-gray-50 bg-white shadow-sm" onclick="app.showDetail('${id}')">>
                             <div class="flex justify-between items-start mb-2">
                                 <h4 class="font-semibold truncate">${
                                   p.name || "Unnamed Export"
@@ -903,7 +1002,7 @@
                             <span></span>
                             <button onclick="app.rerunExport('${
                               p.id || p.id
-                            }')" class="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700">
+                            }')" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors shadow-sm">
                                 Rerun Export
                             </button>
                         </div>
@@ -921,7 +1020,7 @@
             ${
               runs.length
                 ? `
-              <div class="space-y-3 max-h-96 overflow-y-auto">
+              <div class="space-y-3 max-h-96 overflow-y-auto custom-scrollbar">
                 ${runs
                   .map(
                     (run) => `
@@ -951,7 +1050,7 @@
                         run.status === "completed" && run.download_url
                           ? `<button onclick="app.downloadRun('${
                               run.id
-                            }')" class="text-xs px-2 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700 whitespace-nowrap">
+                            }')" class="text-xs px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors whitespace-nowrap shadow-sm">
                               Download ${
                                 run.file_size
                                   ? `(${(run.file_size / 1024 / 1024).toFixed(
@@ -964,7 +1063,7 @@
                       }
                       ${
                         run.status === "completed" && run.tiles_url
-                          ? `<button onclick="app.downloadTiles('${run.id}')" class="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 whitespace-nowrap">
+                          ? `<button onclick="app.downloadTiles('${run.id}')" class="text-xs px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap shadow-sm">
                               Tiles
                              </button>`
                           : ""
@@ -987,165 +1086,108 @@
         }
 
         renderSourceComparison(results) {
-          if (!results || !results.sources) return "";
-
+          if (!results?.sources) return "";
           const sources = Object.entries(results.sources);
-          const maxBuildings = Math.max(
-            ...sources.map(([_, data]) => data.building_count || 0)
-          );
+          const totalBuildings = results.building_count || 0;
+          const population = results.population?.population_estimate || 0;
+          const completeness = results.population_stats?.source_completeness || {};
 
           return `
             <div class="space-y-3">
               <div class="flex justify-between items-center">
-                <div class="text-xs font-medium text-gray-600">Source Comparison</div>
+                <span class="text-sm font-medium">Analysis Results</span>
                 <div class="flex space-x-1">
-                  <button onclick="app.downloadStats('${
-                    results.run_id || ""
-                  }')" class="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200">Stats JSON</button>
-                  ${
-                    results.tiles_available || results.tiles_generated
-                      ? `<button onclick="app.viewOnMap('${
-                          results.run_id || ""
-                        }')" class="text-xs px-2 py-1 bg-emerald-100 text-emerald-700 rounded hover:bg-emerald-200">View Tiles</button>`
-                      : ""
-                  }
+                  <button onclick="app.downloadStats('${results.run_id || ""}')" class="text-xs px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 transition-colors">JSON</button>
+                  ${results.tiles_available ? `<button onclick="app.viewOnMap('${results.run_id || ""}')" class="text-xs px-2 py-1 bg-emerald-100 text-emerald-700 rounded hover:bg-emerald-200 transition-colors">View Map</button>` : ""}
                 </div>
               </div>
               
-              ${
-                results.population
-                  ? `
-                <div class="bg-blue-50 border border-blue-200 rounded p-2 text-xs">
-                  <div class="font-medium text-blue-800 flex items-center">
-                    Population Data 
-                    <span class="ml-1 text-blue-600 cursor-help" title="Population estimate for the selected area">[i]</span>
+              ${results.population ? `
+                <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+                  <div class="flex items-center justify-between mb-3">
+                    <div class="font-semibold text-emerald-800 tooltip cursor-help" data-tooltip="Population estimates from WorldPop dataset for this area">Population Data</div>
                   </div>
-                  <div class="text-blue-700">${
-                    results.population.population_estimate?.toLocaleString() ||
-                    "N/A"
-                  } people</div>
-                  <div class="text-blue-600">${
-                    results.population.area_km2 || 0
-                  }km² • ${results.population.density_per_km2 || 0}/km² • ${
-                      results.population.source || "unknown"
-                    }</div>
-                  ${
-                    results.population.year
-                      ? `<div class="text-blue-500 text-xs">Data: ${results.population.year}</div>`
-                      : ""
-                  }
-                </div>
-              `
-                  : ""
-              }
-              
-              ${
-                results.population_stats
-                  ? `
-                <div class="bg-green-50 border border-green-200 rounded p-2 text-xs">
-                  <div class="font-medium text-green-800">Building Analysis</div>
-                  <div class="grid grid-cols-2 gap-2 mt-1">
-                    <div class="text-green-700">${
-                      results.population_stats.population_per_building
-                    } people/building</div>
-                    <div class="text-green-700">${
-                      results.population_stats.buildings_per_1000_people
-                    } buildings/1K people</div>
-                  </div>
-                  <div class="text-green-600 mt-1">Density: ${results.population_stats.density_category.replace(
-                    "_",
-                    " "
-                  )}</div>
-                  ${
-                    results.population_stats.source_completeness &&
-                    Object.keys(results.population_stats.source_completeness)
-                      .length > 0
-                      ? `
-                    <div class="mt-2 space-y-1">
-                      <div class="text-green-800 font-medium">Source Coverage</div>
-                      ${Object.entries(
-                        results.population_stats.source_completeness
-                      )
-                        .map(
-                          ([source, stats]) => `
-                        <div class="flex justify-between text-green-700">
-                          <span>${source}</span>
-                          <span>${stats.relative_completeness_percent}% (${stats.estimated_coverage})</span>
-                        </div>
-                      `
-                        )
-                        .join("")}
+                  <div class="grid grid-cols-2 gap-3 text-sm">
+                    <div class="space-y-2">
+                      <div class="flex justify-between">
+                        <span class="text-emerald-700">Total People:</span>
+                        <span class="font-mono font-medium">${results.population.population_estimate?.toLocaleString() || "N/A"}</span>
+                      </div>
+                      <div class="flex justify-between">
+                        <span class="text-emerald-700">Area:</span>
+                        <span class="font-mono">${results.population.area_km2 || 0} km²</span>
+                      </div>
                     </div>
-                  `
-                      : ""
-                  }
-                </div>
-              `
-                  : ""
-              }
+                    <div class="space-y-2">
+                      <div class="flex justify-between">
+                        <span class="text-emerald-700">Density:</span>
+                        <span class="font-mono">${results.population.density_per_km2 || 0} ppl/km²</span>
+                      </div>
+                      <div class="flex justify-between">
+                        <span class="text-emerald-700">Source:</span>
+                        <span class="font-mono text-xs">WorldPop</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="text-xs text-emerald-600 mt-3 p-2 bg-emerald-100 rounded">
+                    <strong>Baseline:</strong> Population estimates help assess how many buildings each source should capture for complete coverage
+                  </div>
+                </div>` : ""}
               
-              ${sources
-                .map(([source, data]) => {
-                  const buildingCount = data.building_count || 0;
-                  const areaKm2 = data.total_area_m2
-                    ? (data.total_area_m2 / 1000000).toFixed(1)
-                    : 0;
-                  const avgArea = data.avg_area_m2
-                    ? Math.round(data.avg_area_m2)
-                    : buildingCount > 0
-                    ? Math.round(data.total_area_m2 / buildingCount)
-                    : 0;
-                  const percentage =
-                    maxBuildings > 0 ? (buildingCount / maxBuildings) * 100 : 0;
-
+              <div class="bg-white border border-gray-200 rounded-lg p-4">
+                <div class="flex items-center justify-between mb-3">
+                  <div class="font-semibold text-gray-800 tooltip cursor-help" data-tooltip="Individual analysis of each data source showing buildings per capita and coverage estimates">Source Coverage Analysis</div>
+                </div>
+                
+                ${Object.entries(results.population_stats.source_completeness || {}).map(([source, data]) => {
+                  const count = data.building_count || 0;
+                  const buildingsPerCapita = data.buildings_per_capita || 0;
+                  const coverage = data.estimated_coverage || 'unknown';
+                  const sourceData = sources.find(([s]) => s === source)?.[1] || {};
+                  const area = sourceData.total_area_m2 ? (sourceData.total_area_m2 / 1000000).toFixed(1) : 0;
+                  
+                  let coverageLabel = coverage.charAt(0).toUpperCase() + coverage.slice(1).replace('_', ' ');
+                  
                   return `
-                    <div class="border border-gray-100 rounded p-2 space-y-2">
-                      <div class="flex items-center justify-between">
-                        <span class="font-medium capitalize text-sm flex items-center">
-                          ${source}
-                          <span class="ml-1 text-gray-400 cursor-help text-xs" title="${this.getSourceInfo(
-                            source
-                          )}\">[i]</span>
-                        </span>
-                        <div class="flex space-x-2 text-xs">
-                          <span class="text-emerald-700 font-mono">${buildingCount.toLocaleString()}</span>
-                          <span class="text-emerald-600">${areaKm2}km²</span>
-                          <span class="text-gray-500">${avgArea}m²/bldg</span>
+                    <div class="mb-3 p-3 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
+                      <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center space-x-2">
+                          <div class="w-4 h-4 rounded ${this.getSourceColor(source)}"></div>
+                          <span class="capitalize font-semibold text-gray-800">${source}</span>
+                          <span class="text-xs px-2 py-1 rounded-full ${this.getCompletenessColor(coverage)} text-white">${coverageLabel}</span>
+                        </div>
+                        <div class="text-right">
+                          <div class="font-mono font-bold text-lg text-emerald-700">${count.toLocaleString()}</div>
+                          <div class="text-xs text-gray-500">buildings found</div>
                         </div>
                       </div>
-                      <div class="bg-gray-200 rounded-full h-1.5">
-                        <div class="h-1.5 rounded-full ${this.getSourceColor(
-                          source
-                        )}" style="width: ${percentage}%"></div>
-                      </div>
-                      ${
-                        data.attributes && data.attributes.length > 0
-                          ? `
-                        <div class="text-xs text-gray-500">
-                          <span class="font-medium">Attrs:</span> 
-                          <span class="cursor-help" title="${data.attributes.join(
-                            ", "
-                          )}">${data.attributes.slice(0, 4).join(", ")}${
-                              data.attributes.length > 4
-                                ? ` +${data.attributes.length - 4} more`
-                                : ""
-                            }</span>
+                      <div class="grid grid-cols-2 gap-3 text-xs text-gray-600">
+                        <div>
+                          <span class="block font-medium tooltip cursor-help" data-tooltip="Total area covered by buildings from this source">Coverage Area</span>
+                          <span class="font-mono">${area} km²</span>
                         </div>
-                      `
-                          : ""
-                      }
-                    </div>
-                  `;
-                })
-                .join("")}
-              <div class="flex justify-between text-xs pt-1 border-t border-gray-100">
-                <span class="font-medium">Total</span>
-                <span class="font-mono text-emerald-800">${(
-                  results.building_count || 0
-                ).toLocaleString()} buildings</span>
+                        <div class="tooltip cursor-help" data-tooltip="Calculation: (${count.toLocaleString()} buildings ÷ ${population?.toLocaleString() || 'N/A'} people) × 1000 = ${buildingsPerCapita}">
+                          <span class="block font-medium">Buildings per 1K people</span>
+                          <span class="font-mono text-emerald-600 font-medium">${buildingsPerCapita}</span>
+                        </div>
+                      </div>
+                    </div>`;
+                }).join("")}
+                
+                <div class="mt-4 text-xs text-gray-600 p-3 bg-gray-50 rounded-lg">
+                  <strong>Calculation:</strong> Buildings per 1K people = (Building Count ÷ Population) × 1000
+                  <br><strong>Coverage Assessment:</strong> Based on raw ratio (Building Count ÷ Population):
+                  <div class="mt-2 grid grid-cols-2 gap-2 text-xs">
+                    <div><span class="text-red-600">●</span> Very Low: &lt;0.1 (less than 1 building per 10 people)</div>
+                    <div><span class="text-orange-500">●</span> Low: 0.1-0.2 (1 building per 5-10 people)</div>
+                    <div><span class="text-yellow-500">●</span> Moderate: 0.2-0.4 (1 building per 2.5-5 people)</div>
+                    <div><span class="text-emerald-500">●</span> High: 0.4-0.6 (1 building per 1.7-2.5 people)</div>
+                    <div><span class="text-emerald-600">●</span> Excellent: &gt;0.6 (more than 1 building per 1.7 people)</div>
+                  </div>
+                  <br><strong>Analysis:</strong> Each source is evaluated independently based on buildings found relative to population estimates
+                </div>
               </div>
-            </div>
-          `;
+            </div>`;
         }
 
         getSourceColor(source) {
@@ -1158,16 +1200,15 @@
           return colors[source] || "bg-emerald-500";
         }
 
-        getSourceInfo(source) {
-          const info = {
-            osm: "OpenStreetMap Buildings - Community-contributed building data",
-            google:
-              "Google Open Buildings - AI-detected buildings from satellite imagery",
-            microsoft:
-              "Microsoft Building Footprints - AI-generated building outlines",
-            overture: "Overture Buildings - Collaborative building dataset",
+        getCompletenessColor(coverage) {
+          const colors = {
+            excellent: "bg-emerald-600",
+            high: "bg-emerald-500", 
+            moderate: "bg-yellow-500",
+            low: "bg-orange-500",
+            very_low: "bg-red-500"
           };
-          return info[source] || "Building footprint data source";
+          return colors[coverage] || "bg-gray-500";
         }
 
         async rerunExport(exportId) {

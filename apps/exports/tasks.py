@@ -57,15 +57,14 @@ def process_export(export_run_id: str) -> Dict[str, Any]:
                 source=source,
                 source_config=export.source_config,
             )
-            # logger.info(result)
 
             if result.get("error"):
                 source_results[source] = result
                 continue
-            logger.info(result.get("building_count", 0))
+                
             building_count = result.get("building_count", 0)
             total_building_count += building_count
-
+            
             gdf = result.pop("gdf", None)
             source_results[source] = result
 
@@ -85,15 +84,12 @@ def process_export(export_run_id: str) -> Dict[str, Any]:
 
                     if not file_info.get("error"):
                         source_files[output_format] = file_info
-
                         if output_format == "geojson":
                             geojson_file_path = file_info.get("file_path")
 
                 all_files[source] = source_files
-
                 if geojson_file_path:
                     source_results[source]["geojson_path"] = geojson_file_path
-
                 source_results[source]["has_data"] = True
 
             logger.info("Processed %s buildings from %s", building_count, source)
@@ -102,7 +98,6 @@ def process_export(export_run_id: str) -> Dict[str, Any]:
             logger.info("No buildings found in any source, completing export run")
             export_run.results = {
                 "status": "completed",
-                "building_count": 0,
                 "message": "No buildings found from any source",
                 "sources": source_results,
             }
@@ -113,11 +108,10 @@ def process_export(export_run_id: str) -> Dict[str, Any]:
             logger.info(
                 "Export processing completed for run %s - no data found", export_run_id
             )
-            return {"status": "completed", "building_count": 0}
+            return {"status": "completed"}
 
         final_results = {
             "status": "completed",
-            "building_count": total_building_count,
             "sources": source_results,
             "output_formats": output_formats,
             "files": all_files,
@@ -129,26 +123,13 @@ def process_export(export_run_id: str) -> Dict[str, Any]:
         if population_data:
             final_results["population"] = population_data
 
-            if total_building_count > 0:
-                pop_total = population_data.get("population_estimate", 0)
-                final_results["population_stats"] = {
-                    "population_per_building": round(
-                        pop_total / total_building_count, 2
-                    )
-                    if pop_total > 0
-                    else 0,
-                    "buildings_per_1000_people": round(
-                        (total_building_count / pop_total) * 1000, 2
-                    )
-                    if pop_total > 0
-                    else 0,
-                    "density_category": _classify_building_density(
-                        pop_total, total_building_count
-                    ),
-                    "source_completeness": _analyze_source_completeness(
-                        source_results, pop_total, total_building_count
-                    ),
-                }
+            pop_total = population_data.get("population_estimate", 0)
+            
+            final_results["population_stats"] = {
+                "source_completeness": _analyze_source_completeness(
+                    source_results, pop_total
+                ),
+            }
 
         if is_tippecanoe_available() and total_building_count > 0:
             try:
@@ -376,23 +357,17 @@ def _classify_building_density(population, building_count):
         return "very_high_density"
 
 
-def _analyze_source_completeness(source_results, population, total_building_count):
+def _analyze_source_completeness(source_results, population):
     completeness = {}
 
     for source, result in source_results.items():
         building_count = result.get("building_count", 0)
         if building_count > 0 and population > 0:
             buildings_per_capita = building_count / population
-            relative_completeness = (
-                (building_count / total_building_count) * 100
-                if total_building_count > 0
-                else 0
-            )
 
             completeness[source] = {
                 "building_count": building_count,
                 "buildings_per_capita": round(buildings_per_capita * 1000, 3),
-                "relative_completeness_percent": round(relative_completeness, 1),
                 "estimated_coverage": _estimate_coverage_level(buildings_per_capita),
             }
 
