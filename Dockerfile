@@ -67,10 +67,19 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 WORKDIR /app
 
-RUN mkdir -p /app/media /app/logs /app/staticfiles \
-    && chmod 755 /app/logs \
-    && python manage.py collectstatic --noinput --clear || true
+RUN addgroup --system --gid 1001 django \
+    && adduser --system --uid 1001 --ingroup django django \
+    && mkdir -p /app/media /app/logs /app/staticfiles \
+    && chown -R django:django /app \
+    && chmod 755 /app/logs
+
+USER django
+
+RUN python manage.py collectstatic --noinput --clear || true
 
 EXPOSE 8000
 
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/')" || exit 1
+
+CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "4", "--timeout", "120"]

@@ -120,16 +120,31 @@ cz bump
 
 ## Docker
 
-Production:
-```bash
-docker-compose up --build
-docker-compose exec web python manage.py migrate
-docker-compose exec web python manage.py createsuperuser
-```
-
-Development with live code reloading:
+### Development
 ```bash
 DEBUG=true docker-compose up --build
 ```
 
-This automatically includes dev dependencies (watchdog, commitizen, debug toolbar) and mounts your code for live reloading.
+### Production
+
+1. Copy environment template:
+```bash
+cp .env.prod.example .env.prod
+```
+
+2. Configure production variables in `.env.prod`:
+```bash
+SECRET_KEY=your-production-secret-key
+POSTGRES_PASSWORD=secure-password
+ALLOWED_HOSTS=yourdomain.com
+```
+
+3. Deploy:
+```bash
+./deploy.sh
+```
+
+4. Backup (recommended to run via cron):
+```bash
+./backup.sh
+```

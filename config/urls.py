@@ -7,9 +7,11 @@ from drf_spectacular.views import (
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
+from .health import health_check
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("health/", health_check, name="health_check"),
     # Frontend views
     path("", include("apps.frontend.urls")),
     # API Documentation
