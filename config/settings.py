@@ -268,6 +268,9 @@ SECURE_CONTENT_TYPE_NOSNIFF = env("SECURE_CONTENT_TYPE_NOSNIFF", default=True)
 SECURE_BROWSER_XSS_FILTER = env("SECURE_BROWSER_XSS_FILTER", default=True)
 X_FRAME_OPTIONS = env("X_FRAME_OPTIONS", default="DENY")
 
+LOGS_DIR = BASE_DIR / "logs"
+LOGS_DIR.mkdir(exist_ok=True)
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -288,7 +291,7 @@ LOGGING = {
         },
         "file": {
             "class": "logging.FileHandler",
-            "filename": BASE_DIR / "logs" / "django.log",
+            "filename": LOGS_DIR / "django.log",
             "formatter": "verbose",
         },
     },
