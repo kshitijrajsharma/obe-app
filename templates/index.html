@@ -31,12 +31,12 @@
         height: 70vh;
         min-height: 400px;
       }
-      
+
       .tooltip {
         position: relative;
         cursor: help;
       }
-      
+
       .tooltip:hover::after {
         content: attr(data-tooltip);
         position: absolute;
@@ -54,9 +54,9 @@
         transition: opacity 0.2s;
         pointer-events: none;
       }
-      
+
       .tooltip:hover::before {
-        content: '';
+        content: "";
         position: absolute;
         bottom: 120%;
         left: 50%;
@@ -66,34 +66,34 @@
         z-index: 9999;
         pointer-events: none;
       }
-      
+
       .export-card {
         transition: all 0.2s ease-in-out;
       }
-      
+
       .export-card:hover {
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
       }
-      
+
       .custom-scrollbar::-webkit-scrollbar {
         width: 6px;
       }
-      
+
       .custom-scrollbar::-webkit-scrollbar-track {
         background: #f1f5f9;
         border-radius: 3px;
       }
-      
+
       .custom-scrollbar::-webkit-scrollbar-thumb {
         background: #10b981;
         border-radius: 3px;
       }
-      
+
       .custom-scrollbar::-webkit-scrollbar-thumb:hover {
         background: #059669;
       }
-      
+
       @media (max-width: 768px) {
         #map {
           height: 50vh;
@@ -142,7 +142,9 @@
     <div class="max-w-7xl mx-auto px-4 py-6">
       <div id="main-grid" class="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <div id="left-panel" class="lg:col-span-1">
-          <div class="bg-white rounded-lg shadow-sm h-[600px] flex flex-col">
+          <div
+            class="bg-white rounded-lg shadow-sm h-[calc(100vh-200px)] min-h-[600px] flex flex-col"
+          >
             <div id="exports-view" class="p-6 flex-1 overflow-y-auto">
               <div class="flex justify-between items-center mb-6">
                 <h2 class="text-xl font-semibold">Exports</h2>
@@ -326,33 +328,88 @@
               </form>
             </div>
 
-            <div id="detail-view" class="hidden p-6">
-              <div class="flex items-center justify-between mb-6">
-                <h2 class="text-xl font-semibold">Export Details</h2>
+            <div id="detail-view" class="hidden flex flex-col h-full">
+              <div class="flex items-center justify-between p-4 border-b">
+                <h2 class="text-lg font-semibold">Export Details</h2>
+                <div class="flex items-center space-x-2">
+                  <button
+                    id="rerun-export-btn"
+                    class="px-3 py-1 text-sm bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors"
+                    onclick="app.rerunExport(app.selectedExport?.properties?.id)"
+                  >
+                    Rerun Export
+                  </button>
+                  <button
+                    id="detail-cancel"
+                    class="text-gray-500 hover:text-gray-700"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+              <div id="export-details" class="p-4 border-b bg-gray-50"></div>
+              <div class="flex-1 flex flex-col p-4 min-h-0">
+                <div class="flex items-center justify-between mb-4">
+                  <h3 class="text-md font-semibold">Export Runs</h3>
+                  <span id="runs-count" class="text-sm text-gray-500"></span>
+                </div>
+                <div id="runs-list" class="flex-1 overflow-y-auto space-y-2"></div>
+              </div>
+            </div>
+
+            <div id="run-detail-view" class="hidden flex flex-col h-full">
+              <div class="flex items-center justify-between p-4 border-b">
+                <div class="flex items-center space-x-3">
+                  <button
+                    id="run-detail-back"
+                    class="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                  </button>
+                  <h2 class="text-lg font-semibold">Run Details</h2>
+                </div>
                 <button
-                  id="detail-cancel"
+                  id="run-detail-cancel"
                   class="text-gray-500 hover:text-gray-700"
                 >
                   ✕
                 </button>
               </div>
-              <div id="export-details"></div>
-              <div id="runs-list" class="mt-6"></div>
+              <div id="run-details" class="flex-1 p-4 overflow-y-auto"></div>
             </div>
           </div>
         </div>
 
         <div id="right-panel" class="lg:col-span-2">
-          <div class="bg-white rounded-lg shadow-sm h-[600px] flex flex-col">
+          <div
+            class="bg-white rounded-lg shadow-sm h-[calc(100vh-200px)] min-h-[600px] flex flex-col"
+          >
             <div class="flex justify-between items-center p-4 border-b">
-              <h3 class="font-semibold text-gray-800"></h3>
-              <button id="expand-map" class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors" title="Fullscreen Map">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path>
+              <h3 class="font-semibold text-gray-800">Interactive Map</h3>
+              <button
+                id="expand-map"
+                class="px-3 py-1 text-sm bg-emerald-100 text-emerald-700 hover:bg-emerald-200 rounded transition-colors flex items-center space-x-1"
+                title="Fullscreen Map"
+              >
+                <svg
+                  class="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                  ></path>
                 </svg>
+                <span>Enlarge</span>
               </button>
             </div>
-            <div class="flex-1 p-2">
+            <div class="flex-1">
               <div id="map" class="w-full h-full rounded border"></div>
             </div>
           </div>
@@ -360,17 +417,33 @@
       </div>
     </div>
 
-    <div id="fullscreen-map" class="hidden fixed inset-0 bg-black bg-opacity-90 z-50">
-      <div class="flex flex-col h-full">
+    <div
+      id="fullscreen-map"
+      class="hidden fixed inset-0 bg-black bg-opacity-90 z-50"
+    >
+      <div class="flex flex-col h-screen">
         <div class="flex justify-between items-center p-4 bg-white">
           <h3 class="text-lg font-semibold text-gray-800">Fullscreen View</h3>
-          <button id="close-fullscreen" class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          <button
+            id="close-fullscreen"
+            class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
+          >
+            <svg
+              class="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              ></path>
             </svg>
           </button>
         </div>
-        <div id="fullscreen-map-container" class="flex-1"></div>
+        <div id="fullscreen-map-container" class="flex-1 p-4"></div>
       </div>
     </div>
 
@@ -447,6 +520,11 @@
           });
 
           if (!response.ok) {
+            if (response.status === 401 && token) {
+              this.logout();
+              this.showErrorToast("Session expired. Please login again.");
+              return null;
+            }
             const data = await response.json();
             throw new Error(data.detail || "Request failed");
           }
@@ -470,8 +548,12 @@
                 "/public/exports/?ordering=-created_at"
               );
             }
-            this.exports = data.results?.features || data.features || [];
-            console.log("Loaded exports:", this.exports);
+            if (data) {
+              this.exports = data.results?.features || data.features || [];
+              console.log("Loaded exports:", this.exports);
+            } else {
+              this.exports = [];
+            }
           } catch (error) {
             console.error("Failed to load exports:", error);
             this.exports = [];
@@ -480,19 +562,35 @@
         }
 
         setupEvents() {
-          document.getElementById("login-btn").onclick = () => this.showAuth(true);
-          document.getElementById("signup-btn").onclick = () => this.showAuth(false);
+          document.getElementById("login-btn").onclick = () =>
+            this.showAuth(true);
+          document.getElementById("signup-btn").onclick = () =>
+            this.showAuth(false);
           document.getElementById("logout-btn").onclick = () => this.logout();
-          document.getElementById("show-all").onclick = () => this.toggleFilter(false);
-          document.getElementById("show-mine").onclick = () => this.toggleFilter(true);
-          document.getElementById("create-new").onclick = () => this.showCreate();
-          document.getElementById("expand-map").onclick = () => this.expandMap();
-          document.getElementById("close-fullscreen").onclick = () => this.closeFullscreen();
-          document.getElementById("auth-cancel").onclick = () => this.showExports();
-          document.getElementById("auth-toggle").onclick = () => this.toggleAuthMode();
-          document.getElementById("create-cancel").onclick = () => this.showExports();
-          document.getElementById("detail-cancel").onclick = () => this.showExports();
-          document.getElementById("export-source").onchange = () => this.updateSourceConfigs();
+          document.getElementById("show-all").onclick = () =>
+            this.toggleFilter(false);
+          document.getElementById("show-mine").onclick = () =>
+            this.toggleFilter(true);
+          document.getElementById("create-new").onclick = () =>
+            this.showCreate();
+          document.getElementById("expand-map").onclick = () =>
+            this.expandMap();
+          document.getElementById("close-fullscreen").onclick = () =>
+            this.closeFullscreen();
+          document.getElementById("auth-cancel").onclick = () =>
+            this.showExports();
+          document.getElementById("auth-toggle").onclick = () =>
+            this.toggleAuthMode();
+          document.getElementById("create-cancel").onclick = () =>
+            this.showExports();
+          document.getElementById("detail-cancel").onclick = () =>
+            this.showExports();
+          document.getElementById("run-detail-back").onclick = () =>
+            this.showDetail(this.currentExportId);
+          document.getElementById("run-detail-cancel").onclick = () =>
+            this.showExports();
+          document.getElementById("export-source").onchange = () =>
+            this.updateSourceConfigs();
           document.getElementById("upload-btn").onclick = () =>
             document.getElementById("file-upload").click();
           document.getElementById("file-upload").onchange = (e) =>
@@ -537,7 +635,8 @@
         async loadExportRuns(exportId) {
           try {
             const data = await this.apiCall(`/exports/${exportId}/runs/`);
-            this.renderRuns(data.results || []);
+            this.currentExportRuns = data.results || [];
+            this.renderRuns(this.currentExportRuns);
           } catch (error) {
             console.error("Failed to load runs:", error);
           }
@@ -640,13 +739,15 @@
           e.preventDefault();
           const username = document.getElementById("username").value;
           const password = document.getElementById("password").value;
-          const passwordConfirm = document.getElementById("password-confirm").value;
+          const passwordConfirm =
+            document.getElementById("password-confirm").value;
           const email = document.getElementById("email").value;
 
           document.getElementById("auth-error").classList.add("hidden");
 
           if (!this.isLogin && password !== passwordConfirm) {
-            document.getElementById("auth-error").textContent = "Passwords do not match";
+            document.getElementById("auth-error").textContent =
+              "Passwords do not match";
             document.getElementById("auth-error").classList.remove("hidden");
             return;
           }
@@ -759,12 +860,23 @@
         showSuccessToast(message) {
           const toast = document.createElement("div");
           toast.className =
-            "fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50";
+            "fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50";
           toast.textContent = message;
           document.body.appendChild(toast);
           setTimeout(() => {
             document.body.removeChild(toast);
           }, 3000);
+        }
+
+        showErrorToast(message) {
+          const toast = document.createElement("div");
+          toast.className =
+            "fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50";
+          toast.textContent = message;
+          document.body.appendChild(toast);
+          setTimeout(() => {
+            document.body.removeChild(toast);
+          }, 4000);
         }
 
         logout() {
@@ -777,28 +889,38 @@
 
         expandMap() {
           const mapContainer = document.getElementById("map");
-          const fullscreenContainer = document.getElementById("fullscreen-map-container");
+          const fullscreenContainer = document.getElementById(
+            "fullscreen-map-container"
+          );
           const fullscreenModal = document.getElementById("fullscreen-map");
-          
+
+          mapContainer.style.height = "100%";
+          mapContainer.style.width = "100%";
           fullscreenContainer.appendChild(mapContainer);
           fullscreenModal.classList.remove("hidden");
-          
+
           setTimeout(() => {
-            if (this.map) this.map.resize();
-          }, 100);
+            if (this.map) {
+              this.map.resize();
+            }
+          }, 150);
         }
 
         closeFullscreen() {
           const mapContainer = document.getElementById("map");
-          const originalContainer = document.querySelector("#right-panel .flex-1.p-2");
+          const originalContainer = document.querySelector(
+            "#right-panel .flex-1"
+          );
           const fullscreenModal = document.getElementById("fullscreen-map");
-          
+
+          mapContainer.style.height = "";
+          mapContainer.style.width = "";
           originalContainer.appendChild(mapContainer);
           fullscreenModal.classList.add("hidden");
-          
+
           setTimeout(() => {
             if (this.map) this.map.resize();
-          }, 100);
+          }, 150);
         }
 
         render() {
@@ -814,11 +936,15 @@
           document
             .getElementById("detail-view")
             .classList.toggle("hidden", this.currentView !== "detail");
+          document
+            .getElementById("run-detail-view")
+            .classList.toggle("hidden", this.currentView !== "run-detail");
 
           if (this.currentView === "auth") this.renderAuth();
           if (this.currentView === "exports") this.renderExports();
           if (this.currentView === "create") this.updateCreateButton();
           if (this.currentView === "detail") this.renderDetail();
+          if (this.currentView === "run-detail") this.renderRunDetail();
 
           document
             .getElementById("logout-btn")
@@ -833,7 +959,6 @@
             .getElementById("show-mine")
             .classList.toggle("hidden", !this.user);
 
-          // Adjust layout based on current view
           this.updateLayout();
           this.updateMap();
         }
@@ -842,7 +967,7 @@
           const leftPanel = document.getElementById("left-panel");
           const rightPanel = document.getElementById("right-panel");
 
-          if (this.currentView === "detail") {
+          if (this.currentView === "detail" || this.currentView === "run-detail") {
             leftPanel.className = "xl:col-span-2";
             rightPanel.className = "xl:col-span-1";
           } else {
@@ -887,7 +1012,6 @@
                   const p = exp.properties || {};
                   const id = p.id || exp.id;
 
-                  // Determine processing status and color
                   let status = "idle";
                   let statusColor = "gray";
 
@@ -909,7 +1033,7 @@
                   }
 
                   return `
-                        <div class="export-card border rounded-lg p-4 cursor-pointer hover:bg-gray-50 bg-white shadow-sm" onclick="app.showDetail('${id}')">>
+                        <div class="export-card border rounded-lg p-4 cursor-pointer hover:bg-gray-50 bg-white shadow-sm" onclick="app.showDetail('${id}')">
                             <div class="flex justify-between items-start mb-2">
                                 <h4 class="font-semibold truncate">${
                                   p.name || "Unnamed Export"
@@ -960,128 +1084,154 @@
           const p = this.selectedExport.properties || {};
 
           document.getElementById("export-details").innerHTML = `
-                    <div class="space-y-4">
-                        <div>
-                            <h3 class="text-lg font-semibold">${
-                              p.name || "Unnamed Export"
-                            }</h3>
-                            <p class="text-gray-600">${
-                              p.description || "No description"
-                            }</p>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4 text-sm">
-                            <div><span class="font-medium">Status:</span> ${
-                              p.latest_run?.status ||
-                              (p.is_processing ? "processing" : "ready")
-                            }</div>
-                            <div><span class="font-medium">Public:</span> ${
-                              p.is_public ? "Yes" : "No"
-                            }</div>
-                            <div><span class="font-medium">Sources:</span> ${
-                              Array.isArray(p.source)
-                                ? p.source.join(", ")
-                                : p.source || "unknown"
-                            }</div>
-                            <div><span class="font-medium">Formats:</span> ${
-                              Array.isArray(p.output_format)
-                                ? p.output_format.join(", ")
-                                : p.output_format || "unknown"
-                            }</div>
-                            <div><span class="font-medium">Created:</span> ${
-                              p.created_at
-                                ? new Date(p.created_at).toLocaleDateString()
-                                : "unknown"
-                            }</div>
-                            <div><span class="font-medium">User:</span> ${
-                              p.user?.includes("@")
-                                ? p.user.split("@")[0]
-                                : p.user || "unknown"
-                            }</div>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <span></span>
-                            <button onclick="app.rerunExport('${
-                              p.id || p.id
-                            }')" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors shadow-sm">
-                                Rerun Export
-                            </button>
-                        </div>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div><span class="font-medium">Name:</span> ${
+                          p.name || "Unnamed Export"
+                        }</div>
+                        <div><span class="font-medium">Status:</span> ${
+                          p.latest_run?.status ||
+                          (p.is_processing ? "processing" : "ready")
+                        }</div>
+                        <div><span class="font-medium">Sources:</span> ${
+                          Array.isArray(p.source)
+                            ? p.source.join(", ")
+                            : p.source || "unknown"
+                        }</div>
+                        <div><span class="font-medium">Public:</span> ${
+                          p.is_public ? "Yes" : "No"
+                        }</div>
+                        <div><span class="font-medium">Formats:</span> ${
+                          Array.isArray(p.output_format)
+                            ? p.output_format.join(", ")
+                            : p.output_format || "unknown"
+                        }</div>
+                        <div><span class="font-medium">Created:</span> ${
+                          p.created_at
+                            ? new Date(p.created_at).toLocaleDateString()
+                            : "unknown"
+                        }</div>
+                        <div><span class="font-medium">User:</span> ${
+                          p.user?.includes("@")
+                            ? p.user.split("@")[0]
+                            : p.user || "unknown"
+                        }</div>
+                        ${p.description ? `<div class="col-span-2"><span class="font-medium">Description:</span> ${p.description}</div>` : ''}
                     </div>
                 `;
         }
 
         renderRuns(runs) {
-          document.getElementById("runs-list").innerHTML = `
-            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-2">
-              <h4 class="text-md font-semibold">Export Runs (${
-                runs.length
-              })</h4>
-            </div>
-            ${
-              runs.length
-                ? `
-              <div class="space-y-3 max-h-96 overflow-y-auto custom-scrollbar">
-                ${runs
-                  .map(
-                    (run) => `
-                  <div class="border rounded p-3 bg-white hover:shadow-sm transition-shadow">
-                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 gap-2">
-                      <div class="flex flex-wrap items-center gap-2">
-                        <span class="text-xs px-2 py-1 rounded ${
-                          run.status === "completed"
-                            ? "bg-green-100 text-green-800"
-                            : run.status === "processing"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : run.status === "queued"
-                            ? "bg-blue-100 text-blue-800"
-                            : "bg-red-100 text-red-800"
-                        }">
-                          ${run.status}
-                        </span>
-                        <span class="text-xs text-gray-500 font-mono">${run.id.substring(
-                          0,
-                          8
-                        )}</span>
-                        <span class="text-xs text-gray-500">${
-                          run.duration || ""
-                        }</span>
-                      </div>
-                      ${
-                        run.status === "completed" && run.download_url
-                          ? `<button onclick="app.downloadRun('${
-                              run.id
-                            }')" class="text-xs px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors whitespace-nowrap shadow-sm">
-                              Download ${
-                                run.file_size
-                                  ? `(${(run.file_size / 1024 / 1024).toFixed(
-                                      1
-                                    )}MB)`
-                                  : ""
-                              }
-                             </button>`
-                          : ""
-                      }
-                      ${
-                        run.status === "completed" && run.tiles_url
-                          ? `<button onclick="app.downloadTiles('${run.id}')" class="text-xs px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap shadow-sm">
-                              Tiles
-                             </button>`
-                          : ""
-                      }
+          document.getElementById("runs-count").textContent = `${runs.length} runs`;
+          document.getElementById("runs-list").innerHTML = runs.length
+            ? runs
+                .map(
+                  (run) => `
+                <div class="p-3 border rounded hover:bg-gray-50 cursor-pointer transition-colors" onclick="app.showRunDetail('${run.id}')">
+                  <div class="flex justify-between items-center">
+                    <div class="flex items-center space-x-3">
+                      <span class="text-xs px-2 py-1 rounded ${
+                        run.status === "completed"
+                          ? "bg-green-100 text-green-800"
+                          : run.status === "processing"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : run.status === "queued"
+                          ? "bg-blue-100 text-blue-800"
+                          : "bg-red-100 text-red-800"
+                      }">
+                        ${run.status}
+                      </span>
+                      <span class="text-sm font-medium">#${run.id.slice(-8)}</span>
                     </div>
-                    
-                    ${this.renderSourceComparison({
-                      ...run.results,
-                      run_id: run.id,
-                    })}
+                    <div class="text-right">
+                      <div class="text-xs text-gray-500">${new Date(run.created_at).toLocaleDateString()}</div>
+                      <div class="text-xs text-gray-400">${new Date(run.created_at).toLocaleTimeString()}</div>
+                    </div>
                   </div>
-                `
-                  )
-                  .join("")}
+                  ${run.status === "completed" && run.results?.sources 
+                    ? `<div class="mt-2 text-xs text-gray-600">
+                        ${Object.keys(run.results.sources).join(", ")} • 
+                        ${Object.values(run.results.sources).reduce((sum, s) => sum + (s.building_count || 0), 0).toLocaleString()} buildings
+                       </div>`
+                    : ""
+                  }
+                </div>`
+                )
+                .join("")
+            : '<div class="text-center text-gray-500 py-8">No runs yet</div>';
+        }
+
+        showRunDetail(runId) {
+          this.currentRunId = runId;
+          this.currentView = "run-detail";
+          this.render();
+        }
+
+        renderRunDetail() {
+          if (!this.currentRunId) return;
+          
+          // Find the run data
+          const runs = this.currentExportRuns || [];
+          const run = runs.find(r => r.id === this.currentRunId);
+          
+          if (!run) {
+            document.getElementById("run-details").innerHTML = '<div class="text-red-500">Run not found</div>';
+            return;
+          }
+
+          document.getElementById("run-details").innerHTML = `
+            <div class="space-y-6">
+              <div class="bg-gray-50 rounded-lg p-4">
+                <h3 class="font-semibold mb-3">Run Information</h3>
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span class="text-gray-600">ID:</span>
+                    <span class="font-mono ml-2">${run.id}</span>
+                  </div>
+                  <div>
+                    <span class="text-gray-600">Status:</span>
+                    <span class="ml-2 px-2 py-1 text-xs rounded ${
+                      run.status === "completed"
+                        ? "bg-green-100 text-green-800"
+                        : run.status === "processing"
+                        ? "bg-yellow-100 text-yellow-800"
+                        : run.status === "queued"
+                        ? "bg-blue-100 text-blue-800"
+                        : "bg-red-100 text-red-800"
+                    }">${run.status}</span>
+                  </div>
+                  <div>
+                    <span class="text-gray-600">Created:</span>
+                    <span class="ml-2">${new Date(run.created_at).toLocaleString()}</span>
+                  </div>
+                  ${run.completed_at ? `
+                  <div>
+                    <span class="text-gray-600">Completed:</span>
+                    <span class="ml-2">${new Date(run.completed_at).toLocaleString()}</span>
+                  </div>` : ''}
+                </div>
+                
+                ${run.status === "completed" ? `
+                <div class="mt-4 flex space-x-2">
+                  ${run.download_url ? `
+                  <button onclick="app.downloadRun('${run.id}')" class="px-2 py-1 text-xs bg-emerald-600 text-white rounded hover:bg-emerald-700">
+                    Download ${run.file_size ? `(${(run.file_size / 1024 / 1024).toFixed(1)}MB)` : ''}
+                  </button>` : ''}
+                  ${run.tiles_url ? `
+                  <button onclick="app.downloadTiles('${run.id}')" class="px-2 py-1 text-xs bg-emerald-600 text-white rounded hover:bg-emerald-700">
+                    Download Tiles
+                  </button>` : ''}
+                  <button onclick="app.downloadStats('${run.id}')" class="px-2 py-1 text-xs bg-gray-100 rounded hover:bg-gray-200">
+                    Export JSON
+                  </button>
+                  ${run.results?.tiles_available ? `
+                  <button onclick="app.viewOnMap('${run.id}')" class="px-2 py-1 text-xs bg-emerald-100 text-emerald-700 rounded hover:bg-emerald-200">
+                    View on Map
+                  </button>` : ''}
+                </div>` : ''}
               </div>
-            `
-                : '<div class="text-center py-8 text-gray-500">No runs found</div>'
-            }
+              
+              ${run.status === "completed" && run.results ? this.renderSourceComparison({ ...run.results, run_id: run.id }) : ''}
+            </div>
           `;
         }
 
@@ -1090,19 +1240,18 @@
           const sources = Object.entries(results.sources);
           const totalBuildings = results.building_count || 0;
           const population = results.population?.population_estimate || 0;
-          const completeness = results.population_stats?.source_completeness || {};
+          const completeness =
+            results.population_stats?.source_completeness || {};
 
           return `
             <div class="space-y-3">
               <div class="flex justify-between items-center">
                 <span class="text-sm font-medium">Analysis Results</span>
-                <div class="flex space-x-1">
-                  <button onclick="app.downloadStats('${results.run_id || ""}')" class="text-xs px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 transition-colors">JSON</button>
-                  ${results.tiles_available ? `<button onclick="app.viewOnMap('${results.run_id || ""}')" class="text-xs px-2 py-1 bg-emerald-100 text-emerald-700 rounded hover:bg-emerald-200 transition-colors">View Map</button>` : ""}
-                </div>
               </div>
               
-              ${results.population ? `
+              ${
+                results.population
+                  ? `
                 <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
                   <div class="flex items-center justify-between mb-3">
                     <div class="font-semibold text-emerald-800 tooltip cursor-help" data-tooltip="Population estimates from WorldPop dataset for this area">Population Data</div>
@@ -1111,17 +1260,24 @@
                     <div class="space-y-2">
                       <div class="flex justify-between">
                         <span class="text-emerald-700">Total People:</span>
-                        <span class="font-mono font-medium">${results.population.population_estimate?.toLocaleString() || "N/A"}</span>
+                        <span class="font-mono font-medium">${
+                          results.population.population_estimate?.toLocaleString() ||
+                          "N/A"
+                        }</span>
                       </div>
                       <div class="flex justify-between">
                         <span class="text-emerald-700">Area:</span>
-                        <span class="font-mono">${results.population.area_km2 || 0} km²</span>
+                        <span class="font-mono">${
+                          results.population.area_km2 || 0
+                        } km²</span>
                       </div>
                     </div>
                     <div class="space-y-2">
                       <div class="flex justify-between">
                         <span class="text-emerald-700">Density:</span>
-                        <span class="font-mono">${results.population.density_per_km2 || 0} ppl/km²</span>
+                        <span class="font-mono">${
+                          results.population.density_per_km2 || 0
+                        } ppl/km²</span>
                       </div>
                       <div class="flex justify-between">
                         <span class="text-emerald-700">Source:</span>
@@ -1132,29 +1288,43 @@
                   <div class="text-xs text-emerald-600 mt-3 p-2 bg-emerald-100 rounded">
                     <strong>Baseline:</strong> Population estimates help assess how many buildings each source should capture for complete coverage
                   </div>
-                </div>` : ""}
+                </div>`
+                  : ""
+              }
               
               <div class="bg-white border border-gray-200 rounded-lg p-4">
                 <div class="flex items-center justify-between mb-3">
                   <div class="font-semibold text-gray-800 tooltip cursor-help" data-tooltip="Individual analysis of each data source showing buildings per capita and coverage estimates">Source Coverage Analysis</div>
                 </div>
                 
-                ${Object.entries(results.population_stats.source_completeness || {}).map(([source, data]) => {
-                  const count = data.building_count || 0;
-                  const buildingsPerCapita = data.buildings_per_capita || 0;
-                  const coverage = data.estimated_coverage || 'unknown';
-                  const sourceData = sources.find(([s]) => s === source)?.[1] || {};
-                  const area = sourceData.total_area_m2 ? (sourceData.total_area_m2 / 1000000).toFixed(1) : 0;
-                  
-                  let coverageLabel = coverage.charAt(0).toUpperCase() + coverage.slice(1).replace('_', ' ');
-                  
-                  return `
+                ${Object.entries(
+                  results.population_stats.source_completeness || {}
+                )
+                  .map(([source, data]) => {
+                    const count = data.building_count || 0;
+                    const buildingsPerCapita = data.buildings_per_capita || 0;
+                    const coverage = data.estimated_coverage || "unknown";
+                    const sourceData =
+                      sources.find(([s]) => s === source)?.[1] || {};
+                    const area = sourceData.total_area_m2
+                      ? (sourceData.total_area_m2 / 1000000).toFixed(1)
+                      : 0;
+
+                    let coverageLabel =
+                      coverage.charAt(0).toUpperCase() +
+                      coverage.slice(1).replace("_", " ");
+
+                    return `
                     <div class="mb-3 p-3 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
                       <div class="flex items-center justify-between mb-2">
                         <div class="flex items-center space-x-2">
-                          <div class="w-4 h-4 rounded ${this.getSourceColor(source)}"></div>
+                          <div class="w-4 h-4 rounded ${this.getSourceColor(
+                            source
+                          )}"></div>
                           <span class="capitalize font-semibold text-gray-800">${source}</span>
-                          <span class="text-xs px-2 py-1 rounded-full ${this.getCompletenessColor(coverage)} text-white">${coverageLabel}</span>
+                          <span class="text-xs px-2 py-1 rounded-full ${this.getCompletenessColor(
+                            coverage
+                          )} text-white">${coverageLabel}</span>
                         </div>
                         <div class="text-right">
                           <div class="font-mono font-bold text-lg text-emerald-700">${count.toLocaleString()}</div>
@@ -1166,13 +1336,16 @@
                           <span class="block font-medium tooltip cursor-help" data-tooltip="Total area covered by buildings from this source">Coverage Area</span>
                           <span class="font-mono">${area} km²</span>
                         </div>
-                        <div class="tooltip cursor-help" data-tooltip="Calculation: (${count.toLocaleString()} buildings ÷ ${population?.toLocaleString() || 'N/A'} people) × 1000 = ${buildingsPerCapita}">
+                        <div class="tooltip cursor-help" data-tooltip="Calculation: (${count.toLocaleString()} buildings ÷ ${
+                      population?.toLocaleString() || "N/A"
+                    } people) × 1000 = ${buildingsPerCapita}">
                           <span class="block font-medium">Buildings per 1K people</span>
                           <span class="font-mono text-emerald-600 font-medium">${buildingsPerCapita}</span>
                         </div>
                       </div>
                     </div>`;
-                }).join("")}
+                  })
+                  .join("")}
                 
                 <div class="mt-4 text-xs text-gray-600 p-3 bg-gray-50 rounded-lg">
                   <strong>Calculation:</strong> Buildings per 1K people = (Building Count ÷ Population) × 1000
@@ -1203,10 +1376,10 @@
         getCompletenessColor(coverage) {
           const colors = {
             excellent: "bg-emerald-600",
-            high: "bg-emerald-500", 
+            high: "bg-emerald-500",
             moderate: "bg-yellow-500",
             low: "bg-orange-500",
-            very_low: "bg-red-500"
+            very_low: "bg-red-500",
           };
           return colors[coverage] || "bg-gray-500";
         }
@@ -1230,7 +1403,6 @@
             let downloadUrl = `/api/runs/${runId}/download/`;
             let headers = {};
 
-            // Check if this is a public export run
             if (!token) {
               downloadUrl = `/api/public/runs/${runId}/download/`;
             } else {
@@ -1238,8 +1410,6 @@
             }
 
             const response = await fetch(downloadUrl, { headers });
-
-            // If private download fails and we have no token, try public
             if (!response.ok && token) {
               const publicResponse = await fetch(
                 `/api/public/runs/${runId}/download/`
