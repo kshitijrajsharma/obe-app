@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: obe-app-secrets
+  namespace: obe-app
+type: Opaque
+data:
+  SECRET_KEY: eW91ci1wcm9kdWN0aW9uLXNlY3JldC1rZXk=
+  POSTGRES_PASSWORD: eW91ci1wb3N0Z3Jlcy1wYXNzd29yZA==
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: obe-app-config
+  namespace: obe-app
+data:
+  DEBUG: "false"
+  POSTGRES_DB: "obe_app"
+  POSTGRES_USER: "postgres"
+  ALLOWED_HOSTS: "obe.krschap.tech"
+  DATABASE_URL: "postgis://postgres:$(POSTGRES_PASSWORD)@postgres:5432/obe_app"
+  REDIS_URL: "redis://redis:6379/0"

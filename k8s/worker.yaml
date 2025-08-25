@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: obe-app-worker
+  namespace: obe-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: obe-app-worker
+  template:
+    metadata:
+      labels:
+        app: obe-app-worker
+    spec:
+      containers:
+      - name: worker
+        image: ghcr.io/kshitijrajsharma/obe-app:latest
+        command: ["python", "manage.py", "run_huey"]
+        env:
+        - name: DEBUG
+          valueFrom:
+            configMapKeyRef:
+              name: obe-app-config
+              key: DEBUG
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: obe-app-secrets
+              key: SECRET_KEY
+        - name: DATABASE_URL
+          value: "postgis://postgres:$(POSTGRES_PASSWORD)@postgres:5432/obe_app"
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: obe-app-secrets
+              key: POSTGRES_PASSWORD
+        - name: REDIS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: obe-app-config
+              key: REDIS_URL
+        volumeMounts:
+        - name: media-storage
+          mountPath: /app/media
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "250m"
+      volumes:
+      - name: media-storage
+        persistentVolumeClaim:
+          claimName: media-pvc

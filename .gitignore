@@ -17,8 +17,6 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
-# Migration files (created by setup script)
-apps/*/migrations/0*.py
 
 # Static files (collected by Django)
 staticfiles/

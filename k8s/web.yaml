@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: obe-app-web
+  namespace: obe-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: obe-app-web
+  template:
+    metadata:
+      labels:
+        app: obe-app-web
+    spec:
+      containers:
+      - name: web
+        image: ghcr.io/kshitijrajsharma/obe-app:latest
+        ports:
+        - containerPort: 8000
+        command: ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "4", "--timeout", "120"]
+        env:
+        - name: DEBUG
+          valueFrom:
+            configMapKeyRef:
+              name: obe-app-config
+              key: DEBUG
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: obe-app-secrets
+              key: SECRET_KEY
+        - name: ALLOWED_HOSTS
+          valueFrom:
+            configMapKeyRef:
+              name: obe-app-config
+              key: ALLOWED_HOSTS
+        - name: DATABASE_URL
+          value: "postgis://postgres:$(POSTGRES_PASSWORD)@postgres:5432/obe_app"
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: obe-app-secrets
+              key: POSTGRES_PASSWORD
+        - name: REDIS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: obe-app-config
+              key: REDIS_URL
+        volumeMounts:
+        - name: media-storage
+          mountPath: /app/media
+        livenessProbe:
+          httpGet:
+            path: /health/
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health/
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+      volumes:
+      - name: media-storage
+        persistentVolumeClaim:
+          claimName: media-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: obe-app-web
+  namespace: obe-app
+spec:
+  selector:
+    app: obe-app-web
+  ports:
+  - port: 8000
+    targetPort: 8000
+  type: ClusterIP
